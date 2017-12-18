@@ -1,0 +1,3 @@
+statedb/
+Gopkg.*
+vendor/**
