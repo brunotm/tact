@@ -22,6 +22,7 @@ import (
 
 var (
 	sched      = flag.Bool("sched", false, "Start scheduler")
+	cron       = flag.String("cron", "0 */1 * * * *", "Cron like scheduling expression: 0 */1 * * * *")
 	user       = flag.String("u", "", "user")
 	password   = flag.String("p", "", "password")
 	key        = flag.String("k", "", "ssh/sftp key file path")
@@ -81,8 +82,8 @@ func main() {
 
 	coll := tact.Registry.Get(*collector)
 	if *sched {
-		sched := scheduler.New(1, 60, wchan)
-		if err = sched.AddJob("0 */1 * * * *", coll, node, 290*time.Second); err != nil {
+		sched := scheduler.New(1, 60*time.Second, wchan)
+		if err = sched.AddJob(*cron, coll, node, 290*time.Second); err != nil {
 			panic(err)
 		}
 		sched.Start()
