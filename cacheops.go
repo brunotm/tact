@@ -24,11 +24,7 @@ func getCache(session *session, ttl time.Duration, collname string, keyFields []
 
 	// If not cached run collector
 	if err == kvs.ErrNotFound {
-		cache, err = cacheRun(session, collector, keyFields, ttl)
-		if err != nil {
-			return nil, err
-		}
-		return cache, nil
+		return cacheRun(session, collector, keyFields, ttl)
 	}
 
 	// If everything still valid load cache from the store
@@ -81,9 +77,5 @@ func cacheRun(sess *session, collector *Collector, keyFields []string, ttl time.
 		}
 	}
 
-	if err = batch.Write(); err != nil {
-		return nil, err
-	}
-
-	return cache, err
+	return cache, batch.Write()
 }

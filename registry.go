@@ -61,17 +61,3 @@ func (r *registry) GetGroup(name string) []*Collector {
 
 	panic(fmt.Sprintf("registry: collector group %s does not exist", name))
 }
-
-// Del deletes the CollectorSet for the given name
-func (r *registry) del(name string) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
-
-	_, ok := r.collectors[name]
-	if !ok {
-		return fmt.Errorf("registry: collector %s does not exist", name)
-	}
-
-	delete(r.collectors, name)
-	return nil
-}

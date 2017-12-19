@@ -3,6 +3,8 @@ package tact
 import (
 	"time"
 
+	"github.com/brunotm/kvs"
+
 	"github.com/brunotm/rexon"
 )
 
@@ -76,11 +78,10 @@ func (eo *EventOps) eventDelta(session *session, event []byte) ([]byte, error) {
 	// If we can't find a existing event, store the current event and return
 	previous, err := Store.Get(session.name, session.node.HostName, keyVal)
 	if err != nil {
-		err = Store.SetWithTTL(event, eo.Delta.TTL, session.name, session.node.HostName, keyVal)
-		if err != nil {
-			return nil, err
+		if err == kvs.ErrNotFound {
+			return nil, Store.SetWithTTL(event, eo.Delta.TTL, session.name, session.node.HostName, keyVal)
 		}
-		return nil, nil
+		return nil, err
 	}
 
 	// Store the current event

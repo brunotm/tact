@@ -8,11 +8,6 @@ import (
 	"github.com/brunotm/tact/collector"
 )
 
-const (
-	multipathCmd = "/sbin/multipath -ll"
-	procpartCmd  = "cat /proc/partitions"
-)
-
 // init add this collector with the registry
 func init() {
 	tact.Registry.Add(lsblk)

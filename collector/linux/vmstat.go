@@ -77,7 +77,6 @@ func NewVMStat() *tact.Collector {
 	}
 
 	vmstat.PostOps = func(event []byte) ([]byte, error) {
-		var err error
 
 		userTicks, _ := rexon.JSONGetFloat(event, "cpu_user_ticks")
 		userNiceTicks, _ := rexon.JSONGetFloat(event, "cpu_usernice_ticks")
@@ -89,11 +88,11 @@ func NewVMStat() *tact.Collector {
 		stealTicks, _ := rexon.JSONGetFloat(event, "cpu_stolen_ticks")
 
 		cpuTotal := userTicks + userNiceTicks + systemTicks + idleTicks + waitTicks + irqTicks + sirqTicks + stealTicks
-		event, err = rexon.JSONSet(event, rexon.Round((userTicks+userNiceTicks)/cpuTotal*100, 2), "avg_cpu_user")
-		event, err = rexon.JSONSet(event, rexon.Round((systemTicks+irqTicks+sirqTicks)/cpuTotal*100, 2), "avg_cpu_system")
-		event, err = rexon.JSONSet(event, rexon.Round((waitTicks)/cpuTotal*100, 2), "avg_cpu_iowait")
-		event, err = rexon.JSONSet(event, rexon.Round((stealTicks)/cpuTotal*100, 2), "avg_cpu_stealwait")
-		event, err = rexon.JSONSet(event, rexon.Round((idleTicks)/cpuTotal*100, 2), "avg_cpu_idle")
+		event, _ = rexon.JSONSet(event, rexon.Round((userTicks+userNiceTicks)/cpuTotal*100, 2), "avg_cpu_user")
+		event, _ = rexon.JSONSet(event, rexon.Round((systemTicks+irqTicks+sirqTicks)/cpuTotal*100, 2), "avg_cpu_system")
+		event, _ = rexon.JSONSet(event, rexon.Round((waitTicks)/cpuTotal*100, 2), "avg_cpu_iowait")
+		event, _ = rexon.JSONSet(event, rexon.Round((stealTicks)/cpuTotal*100, 2), "avg_cpu_stealwait")
+		event, _ = rexon.JSONSet(event, rexon.Round((idleTicks)/cpuTotal*100, 2), "avg_cpu_idle")
 
 		event = rexon.JSONDelete(event, "cpu_user_ticks")
 		event = rexon.JSONDelete(event, "cpu_usernice_ticks")
@@ -104,7 +103,7 @@ func NewVMStat() *tact.Collector {
 		event = rexon.JSONDelete(event, "cpu_softirq_ticks")
 		event = rexon.JSONDelete(event, "cpu_stolen_ticks")
 
-		return event, err
+		return event, nil
 	}
 
 	return vmstat

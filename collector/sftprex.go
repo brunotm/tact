@@ -33,6 +33,10 @@ func sftpRex(session tact.Session, fileName string, rex rexon.Parser, outChan ch
 
 	// Open the remote file for reading, defaults to O_RDONLY
 	file, err := sftpSession.Open(filePath)
+	if err != nil {
+		session.LogErr("sftprex: opening file %s: %s", fileName, err.Error())
+		return
+	}
 
 	// Read the first 2048 bytes for hashing
 	// Used to guarantee we only seek to previous position if dealing with the same file
