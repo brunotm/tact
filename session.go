@@ -43,7 +43,7 @@ func (s *session) Start() {
 	}
 }
 
-// Done successfuly terminates session
+// Done successfully terminates session
 func (s *session) Done() {
 	s.done(true)
 }
@@ -73,7 +73,7 @@ func (s *session) Context() context.Context {
 	return s.ctx
 }
 
-// LastTime returns the last time this session successfuly ran
+// LastTime returns the last time this session successfully ran
 func (s *session) LastTime() int64 {
 	return s.timeLast
 }

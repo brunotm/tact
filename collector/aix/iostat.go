@@ -27,14 +27,14 @@ var ioStat = &tact.Collector{
 		},
 	},
 	Joins: []*tact.Join{
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/aix/config/storage",
 			JoinFields:    []string{"device"},
 			JoinOnFields:  []string{"device"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn"},
 		},
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/aix/config/lspv",
 			JoinFields:    []string{"device"},

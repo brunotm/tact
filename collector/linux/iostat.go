@@ -38,21 +38,21 @@ var ioStat = &tact.Collector{
 		},
 	},
 	Joins: []*tact.Join{
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
 			JoinFields:    []string{"device"},
 			JoinOnFields:  []string{"dm_device", "device"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "dm_device"},
 		},
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/pvs",
 			JoinFields:    []string{"device"},
 			JoinOnFields:  []string{"dm_device", "device"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "vg_name", "vg_type", "vg_mode"},
 		},
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/asm",
 			JoinFields:    []string{"device"},

@@ -19,7 +19,7 @@ var lsblk = &tact.Collector{
 	Name:    "/linux/config/lsblk",
 	GetData: lsblkFn,
 	Joins: []*tact.Join{
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/storage",
 			JoinFields:    []string{"device", "dm_device"},
@@ -60,7 +60,7 @@ var pvs = &tact.Collector{
 	Name:    "/linux/config/pvs",
 	GetData: pvsFn,
 	Joins: []*tact.Join{
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
 			JoinFields:    []string{"device"},
@@ -85,7 +85,7 @@ var asmDevices = &tact.Collector{
 	GetData: asmDevicesFn,
 	PostOps: asmDevicesPostOpsFn,
 	Joins: []*tact.Join{
-		&tact.Join{
+		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
 			JoinFields:    []string{"maj_min"},

@@ -43,7 +43,7 @@ func (c *Collector) Start(sess *session, writeCh chan<- []byte) {
 
 			if !running {
 				sess.Done()
-				sess.LogInfo("finished successfuly")
+				sess.LogInfo("finished successfully")
 				return
 			}
 

@@ -7,7 +7,7 @@ type Session interface {
 	Name() string                                 // Return this session name
 	Node() *Node                                  // Return this session node config
 	Context() context.Context                     // Return this session context
-	LastTime() int64                              // Return last succesful run timestamp
+	LastTime() int64                              // Return last successful run timestamp
 	LogInfo(message string, args ...interface{})  // LogInfo
 	LogWarn(message string, args ...interface{})  // LogWarn
 	LogErr(message string, args ...interface{})   // LogErr
