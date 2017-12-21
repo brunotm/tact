@@ -62,11 +62,8 @@ func (eo *EventOps) process(session *session, event []byte) []byte {
 // eventDelta perform delta and rate calculation
 func (eo *EventOps) eventDelta(session *session, event []byte) ([]byte, error) {
 
-	// Set a default event key for single event streams
-	keyVal := ""
-	if eo.Delta.KeyField != "" {
-		keyVal, _ = rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)
-	}
+	// Get any specified event unique attribute key, empty string otherwise
+	keyVal, _ := rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)
 
 	// Set the timestamp on the current event for caching
 	event, err := rexon.JSONSet(event, session.timeCurrent, KeyTimeStamp)
