@@ -13,4 +13,6 @@ const (
 	KeyNode = "node"
 	// KeyCollector for collector path designation
 	KeyCollector = "collector"
+
+	cachePrefix = "cache"
 )

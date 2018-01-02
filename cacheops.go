@@ -8,10 +8,6 @@ import (
 	"github.com/brunotm/rexon"
 )
 
-const (
-	cachePrefix = "cache"
-)
-
 // GetCache returns a cached or new map[keyfield]value for the given collector
 func getCache(session *session, ttl time.Duration, collname string, keyFields []string) (cache map[string][]byte, err error) {
 	collector := Registry.Get(collname)
