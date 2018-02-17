@@ -35,7 +35,7 @@ var lsblkParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString, "size_bytes": rexon.TypeNumber},
 }
 
-func lsblkFn(session tact.Session) <-chan []byte {
+func lsblkFn(session *tact.Session) <-chan []byte {
 	outChan := make(chan []byte)
 	go func() {
 		defer close(outChan)
@@ -76,7 +76,7 @@ var pvsParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func pvsFn(session tact.Session) <-chan []byte {
+func pvsFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, "pvs", pvsParser)
 }
 
@@ -101,7 +101,7 @@ var asmDevicesParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func asmDevicesFn(session tact.Session) <-chan []byte {
+func asmDevicesFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, "ls -l /dev/oracleasm/disks", asmDevicesParser)
 }
 

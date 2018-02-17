@@ -14,12 +14,12 @@ import (
 // Scheduler type
 type Scheduler struct {
 	*sync.RWMutex
-	ctx     context.Context         // Main context that will be propagated to running collectors
-	cancel  context.CancelFunc      // Cancel function of main context
-	grace   time.Duration           // Grace period before failing a start when acquiring a run slot
-	sema    *sema.Sema              // Semaphore to control maxTasks run slot
-	cron    *cron.Cron              // The cron scheduler
-	running map[string]tact.Session // The store for current running sessions
+	ctx     context.Context          // Main context that will be propagated to running collectors
+	cancel  context.CancelFunc       // Cancel function of main context
+	grace   time.Duration            // Grace period before failing a start when acquiring a run slot
+	sema    *sema.Sema               // Semaphore to control maxTasks run slot
+	cron    *cron.Cron               // The cron scheduler
+	running map[string]*tact.Session // The store for current running sessions
 	wchan   chan []byte
 }
 
@@ -39,7 +39,7 @@ func New(maxTasks int, grace time.Duration, wchan chan []byte) (sched *Scheduler
 		grace:   grace,
 		sema:    sema,
 		cron:    cron.New(),
-		running: make(map[string]tact.Session),
+		running: make(map[string]*tact.Session),
 		wchan:   wchan,
 	}
 }
@@ -108,7 +108,7 @@ func (s *Scheduler) waitJobs() {
 	}
 }
 
-func (s *Scheduler) addRun(name string, session tact.Session) bool {
+func (s *Scheduler) addRun(name string, session *tact.Session) bool {
 	s.Lock()
 	defer s.Unlock()
 

@@ -7,13 +7,13 @@ import (
 )
 
 // SFTPRex collector base
-func SFTPRex(session tact.Session, fileName string, rex rexon.Parser) <-chan []byte {
+func SFTPRex(session *tact.Session, fileName string, rex rexon.Parser) <-chan []byte {
 	outChan := make(chan []byte)
 	go sftpRex(session, fileName, rex, outChan)
 	return outChan
 }
 
-func sftpRex(session tact.Session, fileName string, rex rexon.Parser, outChan chan<- []byte) {
+func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outChan chan<- []byte) {
 	defer close(outChan)
 
 	// Get the file path for this collector type from the node configuration

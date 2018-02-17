@@ -32,6 +32,6 @@ var vmStatParser = &rexon.RexLine{
 }
 
 // VMStat collector
-func vmStatFn(session tact.Session) <-chan []byte {
+func vmStatFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, vmStatCmd, vmStatParser)
 }

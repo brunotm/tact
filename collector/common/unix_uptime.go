@@ -12,7 +12,7 @@ const (
 
 // NewUnixUptimeFn creates a new unix uptime GetData
 func NewUnixUptimeFn() tact.GetDataFn {
-	return func(session tact.Session) <-chan []byte {
+	return func(session *tact.Session) <-chan []byte {
 		return collector.SSHRex(session, upTimeCmd, upTimeParser)
 	}
 }

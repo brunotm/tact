@@ -14,9 +14,9 @@ type Collector struct {
 }
 
 // Start this collector with given session and write channel
-func (c *Collector) Start(sess *session, writeCh chan<- []byte) {
+func (c *Collector) Start(sess *Session, writeCh chan<- []byte) {
 	sess.Start()
-	defer sess.Cancel()
+	defer sess.cancel()
 
 	// Build cache if needed
 	err := c.buildRunCache(sess)
@@ -42,7 +42,7 @@ func (c *Collector) Start(sess *session, writeCh chan<- []byte) {
 		case event, running := <-events:
 
 			if !running {
-				sess.Done()
+				sess.done()
 				sess.LogInfo("finished successfully")
 				return
 			}
@@ -85,7 +85,7 @@ func (c *Collector) Start(sess *session, writeCh chan<- []byte) {
 	}
 }
 
-func (c *Collector) buildRunCache(session *session) (err error) {
+func (c *Collector) buildRunCache(session *Session) (err error) {
 	if len(c.Joins) > 0 {
 		for _, join := range c.Joins {
 			err := join.loadData(session)

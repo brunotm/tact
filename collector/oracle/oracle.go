@@ -16,13 +16,13 @@ const (
 )
 
 // Query collector base
-func singleQuery(session tact.Session, query string) <-chan []byte {
+func singleQuery(session *tact.Session, query string) <-chan []byte {
 	outChan := make(chan []byte)
 	go oracleQuery(session, query, outChan)
 	return outChan
 }
 
-func oracleQuery(session tact.Session, query string, outChan chan<- []byte) {
+func oracleQuery(session *tact.Session, query string, outChan chan<- []byte) {
 	defer close(outChan)
 	db, err := sql.Open(oracleDriver,
 		fmt.Sprintf("%s/%s@%s:%s/%s",

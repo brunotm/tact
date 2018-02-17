@@ -17,7 +17,7 @@ type Join struct {
 }
 
 // Process joins for the given event
-func (j *Join) Process(session *session, event []byte) (joined []byte, ok bool) {
+func (j *Join) Process(session *Session, event []byte) (joined []byte, ok bool) {
 	// Try to join on each specified field until matched
 	for field := range j.JoinFields {
 		if event, ok := j.join(session, event, j.JoinFields[field]); ok {
@@ -28,7 +28,7 @@ func (j *Join) Process(session *session, event []byte) (joined []byte, ok bool) 
 	return event, false
 }
 
-func (j *Join) join(session *session, event []byte, joinField string) (joined []byte, ok bool) {
+func (j *Join) join(session *Session, event []byte, joinField string) (joined []byte, ok bool) {
 	eventKey, _ := rexon.JSONGetUnsafeString(event, joinField)
 	cached, ok := session.cache[j.Name][eventKey]
 	if ok {
@@ -43,7 +43,7 @@ func (j *Join) join(session *session, event []byte, joinField string) (joined []
 	return event, false
 }
 
-func (j *Join) loadData(session *session) (err error) {
+func (j *Join) loadData(session *Session) (err error) {
 	// TODO: make loading indempotent
 	cache, err := getCache(session, j.TTL, j.Name, j.JoinOnFields)
 	if err != nil {

@@ -52,7 +52,7 @@ var memoryParser = &rexon.RexSet{
 }
 
 // System memory collector
-func memoryFn(session tact.Session) <-chan []byte {
+func memoryFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, memoryCmd, memoryParser)
 }
 
@@ -73,6 +73,6 @@ var memoryUserParser = &rexon.RexLine{
 }
 
 // MemoryUser collector
-func memoryUserFn(session tact.Session) <-chan []byte {
+func memoryUserFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, memoryUserCmd, memoryUserParser)
 }

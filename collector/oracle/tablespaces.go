@@ -32,6 +32,6 @@ var tableSpaces = &tact.Collector{
 	},
 }
 
-func tableSpacesFn(session tact.Session) <-chan []byte {
+func tableSpacesFn(session *tact.Session) <-chan []byte {
 	return singleQuery(session, tableSpacesQuery)
 }

@@ -1,20 +1,5 @@
 package tact
 
-import "context"
-
-// Session carries the configuration and logging context
-type Session interface {
-	Name() string                                 // Return this session name
-	Node() *Node                                  // Return this session node config
-	Context() context.Context                     // Return this session context
-	LastTime() int64                              // Return last successful run timestamp
-	LogInfo(message string, args ...interface{})  // LogInfo
-	LogWarn(message string, args ...interface{})  // LogWarn
-	LogErr(message string, args ...interface{})   // LogErr
-	LogDebug(message string, args ...interface{}) // LogDebug
-
-}
-
 // Node holds configuration for the given session
 type Node struct {
 	HostName    string            `json:"hostname,omitempty"`
@@ -34,7 +19,7 @@ type Node struct {
 }
 
 // GetDataFn collect function type
-type GetDataFn func(session Session) <-chan []byte
+type GetDataFn func(session *Session) <-chan []byte
 
 // PostEventOpsFn to post process events
 type PostEventOpsFn func([]byte) ([]byte, error)

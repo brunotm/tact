@@ -62,7 +62,7 @@ var ioStat = &tact.Collector{
 	},
 }
 
-func ioStatFn(session tact.Session) <-chan []byte {
+func ioStatFn(session *tact.Session) <-chan []byte {
 	outChan := make(chan []byte)
 
 	go func() {

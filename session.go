@@ -9,7 +9,9 @@ import (
 	"github.com/brunotm/rexon"
 )
 
-type session struct {
+// Session holds the context and session data
+// for running collectors and childrens
+type Session struct {
 	name        string
 	node        *Node
 	ctx         context.Context
@@ -21,8 +23,8 @@ type session struct {
 }
 
 // NewSession creates a new session
-func NewSession(ctx context.Context, name string, node *Node, ttl time.Duration) (s *session) {
-	s = &session{}
+func NewSession(ctx context.Context, name string, node *Node, ttl time.Duration) (s *Session) {
+	s = &Session{}
 	s.name = name
 	s.ctx = ctx
 	s.timeout = ttl
@@ -31,7 +33,8 @@ func NewSession(ctx context.Context, name string, node *Node, ttl time.Duration)
 }
 
 // Start session setting up last time, cache storage and cancellation
-func (s *session) Start() {
+func (s *Session) Start() {
+	// TODO: refactor to error out
 	s.loadLastTime()
 	s.cache = make(map[string]map[string][]byte)
 	s.timeCurrent = time.Now().Unix()
@@ -43,42 +46,42 @@ func (s *session) Start() {
 	}
 }
 
-// Done successfully terminates session
-func (s *session) Done() {
-	s.done(true)
+// done successfully terminates session
+func (s *Session) done() {
+	s.close(true)
 }
 
-// Cancel session
-func (s *session) Cancel() {
-	s.done(false)
+// cancel session
+func (s *Session) cancel() {
+	s.close(false)
 }
 
-// Child creates a new session within the current session context
-func (s *session) Child(name string) *session {
+// child creates a new session within the current session context
+func (s *Session) child(name string) *Session {
 	return NewSession(s.ctx, name, s.node, s.timeout)
 }
 
 // Node returns this session node
-func (s *session) Node() *Node {
+func (s *Session) Node() *Node {
 	return s.node
 }
 
 // Name returns this session name
-func (s *session) Name() string {
+func (s *Session) Name() string {
 	return s.name
 }
 
 // Context returns this session context
-func (s *session) Context() context.Context {
+func (s *Session) Context() context.Context {
 	return s.ctx
 }
 
 // LastTime returns the last time this session successfully ran
-func (s *session) LastTime() int64 {
+func (s *Session) LastTime() int64 {
 	return s.timeLast
 }
 
-func (s *session) done(ok bool) {
+func (s *Session) close(ok bool) {
 	if ok {
 		s.storeLastTime()
 	}
@@ -88,14 +91,14 @@ func (s *session) done(ok bool) {
 	s.cache = nil
 }
 
-func (s *session) storeLastTime() {
+func (s *Session) storeLastTime() {
 	lb := uint64Bytes(uint64(s.timeCurrent))
 	if err := Store.Set(lb, s.name, s.node.HostName, KeyLastTimestamp); err != nil {
 		s.LogErr("store last time: %s", err.Error())
 	}
 }
 
-func (s *session) loadLastTime() {
+func (s *Session) loadLastTime() {
 	lb, err := Store.Get(s.name, s.node.HostName, KeyLastTimestamp)
 	if err != nil {
 		return
@@ -104,7 +107,7 @@ func (s *session) loadLastTime() {
 }
 
 // EnrichEvent enriches and outgoing event
-func (s *session) enrichEvent(event []byte) []byte {
+func (s *Session) enrichEvent(event []byte) []byte {
 	if !rexon.JSONExists(event, KeyTimeStamp) {
 		event, _ = rexon.JSONSet(event, s.timeCurrent, KeyTimeStamp)
 	}
@@ -114,27 +117,27 @@ func (s *session) enrichEvent(event []byte) []byte {
 }
 
 // LogInfo the given string format with given arguments
-func (s *session) LogInfo(message string, args ...interface{}) {
+func (s *Session) LogInfo(message string, args ...interface{}) {
 	log.WithFields(s.getLogFields()).Info(logMessage(message, args))
 }
 
 // LogWarn the given string format with given arguments
-func (s *session) LogWarn(message string, args ...interface{}) {
+func (s *Session) LogWarn(message string, args ...interface{}) {
 	log.WithFields(s.getLogFields()).Warn(logMessage(message, args))
 }
 
 // LogErr the given string format with given arguments
-func (s *session) LogErr(message string, args ...interface{}) {
+func (s *Session) LogErr(message string, args ...interface{}) {
 	log.WithFields(s.getLogFields()).Error(logMessage(message, args))
 }
 
 // LogDebug the given string format with given arguments
-func (s *session) LogDebug(message string, args ...interface{}) {
+func (s *Session) LogDebug(message string, args ...interface{}) {
 	log.WithFields(s.getLogFields()).Debug(logMessage(message, args))
 }
 
 // return a log.Fields
-func (s *session) getLogFields() log.Fields {
+func (s *Session) getLogFields() log.Fields {
 	return log.Fields{
 		KeyNode:      s.node.HostName,
 		KeyCollector: s.name,

@@ -26,6 +26,6 @@ var sessions = &tact.Collector{
 }
 
 // vmstat collector
-func sessionsFn(session tact.Session) <-chan []byte {
+func sessionsFn(session *tact.Session) <-chan []byte {
 	return singleQuery(session, sessionsQuery)
 }

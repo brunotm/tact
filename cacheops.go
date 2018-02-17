@@ -9,7 +9,7 @@ import (
 )
 
 // GetCache returns a cached or new map[keyfield]value for the given collector
-func getCache(session *session, ttl time.Duration, collname string, keyFields []string) (cache map[string][]byte, err error) {
+func getCache(session *Session, ttl time.Duration, collname string, keyFields []string) (cache map[string][]byte, err error) {
 	collector := Registry.Get(collname)
 
 	// Return if we get an error from the underlying store other than ErrNotFound
@@ -41,7 +41,7 @@ func getCache(session *session, ttl time.Duration, collname string, keyFields []
 	return cache, err
 }
 
-func cacheRun(sess *session, collector *Collector, keyFields []string, ttl time.Duration) (cache map[string][]byte, err error) {
+func cacheRun(sess *Session, collector *Collector, keyFields []string, ttl time.Duration) (cache map[string][]byte, err error) {
 	if len(keyFields) == 0 {
 		return nil, fmt.Errorf("empty key fields for caching")
 	}
@@ -51,7 +51,7 @@ func cacheRun(sess *session, collector *Collector, keyFields []string, ttl time.
 
 	wchan := make(chan []byte)
 	go func() {
-		collector.Start(sess.Child(collector.Name), wchan)
+		collector.Start(sess.child(collector.Name), wchan)
 		close(wchan)
 	}()
 

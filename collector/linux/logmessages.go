@@ -34,7 +34,7 @@ var logMessagesParser = &rexon.RexLine{
 		"pid":            rexon.TypeNumber},
 }
 
-func logMessagesFn(session tact.Session) (outCh <-chan []byte) {
+func logMessagesFn(session *tact.Session) (outCh <-chan []byte) {
 	return collector.SFTPRex(session, fileName, logMessagesParser)
 }
 

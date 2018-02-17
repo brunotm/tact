@@ -31,6 +31,6 @@ var wlmStatParser = &rexon.RexLine{
 }
 
 // WLMStat collector
-func wlmStatFn(session tact.Session) <-chan []byte {
+func wlmStatFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, wlmStatCmd, wlmStatParser)
 }

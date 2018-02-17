@@ -32,7 +32,7 @@ var errorLogParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func errorLogFn(session tact.Session) <-chan []byte {
+func errorLogFn(session *tact.Session) <-chan []byte {
 
 	// If this is our first run set back the clock to gather events
 	timeLast := session.LastTime()

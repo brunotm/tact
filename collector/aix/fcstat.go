@@ -98,7 +98,7 @@ var fcStatParser = &rexon.RexSet{
 }
 
 // FCStat collector
-func fcStatFn(session tact.Session) <-chan []byte {
+func fcStatFn(session *tact.Session) <-chan []byte {
 	outChan := make(chan []byte)
 
 	go func() {

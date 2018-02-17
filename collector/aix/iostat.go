@@ -55,7 +55,7 @@ var ioStatParser = &rexon.RexLine{
 }
 
 // iostat collector
-func ioStatFn(session tact.Session) <-chan []byte {
+func ioStatFn(session *tact.Session) <-chan []byte {
 	outChan := make(chan []byte)
 	inChan := collector.SSHRex(session, ioStatCmd, ioStatParser)
 

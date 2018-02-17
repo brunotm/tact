@@ -26,6 +26,6 @@ var lspvParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func lspvFn(session tact.Session) <-chan []byte {
+func lspvFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, lspvCmd, lspvParser)
 }

@@ -33,7 +33,7 @@ type EventOps struct {
 	Delta        *DeltaOps
 }
 
-func (eo *EventOps) process(session *session, event []byte) []byte {
+func (eo *EventOps) process(session *Session, event []byte) []byte {
 	var err error
 	// Perform any specified field ops
 	if eo.FieldTypes != nil {
@@ -60,7 +60,7 @@ func (eo *EventOps) process(session *session, event []byte) []byte {
 }
 
 // eventDelta perform delta and rate calculation
-func (eo *EventOps) eventDelta(session *session, event []byte) ([]byte, error) {
+func (eo *EventOps) eventDelta(session *Session, event []byte) ([]byte, error) {
 
 	// Get any specified event unique attribute key, empty string otherwise
 	keyVal, _ := rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)

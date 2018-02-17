@@ -15,7 +15,7 @@ func NewUnixEMCStorageFn(inqPath, rex string) tact.GetDataFn {
 		Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 	}
 
-	return func(session tact.Session) <-chan []byte {
+	return func(session *tact.Session) <-chan []byte {
 		outChan := make(chan []byte)
 		go func() {
 			defer close(outChan)

@@ -72,7 +72,7 @@ func NewVMStat() *tact.Collector {
 	parser.AddRex("avg_interrupts", `^(\d+)\s+interrupts`, rexon.TypeNumber)
 	parser.AddRex("avg_cpu_context_switches", `^(\d+)\s+CPU\s+context\s+switches`, rexon.TypeNumber)
 
-	vmstat.GetData = func(session tact.Session) <-chan []byte {
+	vmstat.GetData = func(session *tact.Session) <-chan []byte {
 		return collector.SSHRex(session, vmstatCmd, parser)
 	}
 

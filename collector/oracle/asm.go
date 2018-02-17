@@ -31,6 +31,6 @@ var asmDiskGroup = &tact.Collector{
 	},
 }
 
-func asmDiskGroupFn(session tact.Session) <-chan []byte {
+func asmDiskGroupFn(session *tact.Session) <-chan []byte {
 	return singleQuery(session, asmDiskGroupQuery)
 }

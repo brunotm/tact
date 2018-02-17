@@ -15,7 +15,7 @@ const (
 )
 
 // SSHScanner collector base
-func SSHScanner(session tact.Session, cmd string) *bufio.Scanner {
+func SSHScanner(session *tact.Session, cmd string) *bufio.Scanner {
 	sshSession, err := sshmgr.Manager.GetSSHSession(NewSSHNodeConfig(session.Node()))
 	if err != nil {
 		session.LogErr("sshscanner: error getting ssh session: %s", err.Error())
@@ -56,13 +56,13 @@ func SSHScanner(session tact.Session, cmd string) *bufio.Scanner {
 }
 
 // SSHRex collector base
-func SSHRex(session tact.Session, cmd string, rex rexon.Parser) <-chan []byte {
+func SSHRex(session *tact.Session, cmd string, rex rexon.Parser) <-chan []byte {
 	outChan := make(chan []byte)
 	go sshRex(session, cmd, rex, outChan)
 	return outChan
 }
 
-func sshRex(session tact.Session, cmd string, rex rexon.Parser, outChan chan<- []byte) {
+func sshRex(session *tact.Session, cmd string, rex rexon.Parser, outChan chan<- []byte) {
 	defer close(outChan)
 
 	sshSession, err := sshmgr.Manager.GetSSHSession(NewSSHNodeConfig(session.Node()))
