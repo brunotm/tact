@@ -13,4 +13,4 @@ Tact is a opinionated agentless machine data extraction framework written in Go
 - [ ] Sink/Write drivers
 - [ ] Documentation
 
-Written by Bruno Moura brunotm@gmail.com
+Written by Bruno Moura brunotm@gmail.com, Licensed under the Apache License, Version 2.0.
