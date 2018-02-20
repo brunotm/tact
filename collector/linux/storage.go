@@ -11,7 +11,7 @@ func init() {
 }
 
 const (
-	inqPath = "/sistemas/sismng/software/inq.LinuxAMD64"
+	inqPath = "inq.LinuxAMD64"
 	inqRex  = `^/dev/(.*?)\s+(\w+)\s+(\w+)\s+(\w+)`
 )
 
