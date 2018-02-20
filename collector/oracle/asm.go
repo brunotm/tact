@@ -14,7 +14,7 @@ func init() {
 }
 
 var asmDiskGroup = &tact.Collector{
-	Name:    "/oracle/config/asmdiskgroup",
+	Name:    "/oracle/config/asm_diskgroup",
 	GetData: asmDiskGroupFn,
 	EventOps: &tact.EventOps{
 		Round: 2,
