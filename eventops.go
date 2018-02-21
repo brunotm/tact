@@ -3,9 +3,12 @@ package tact
 import (
 	"time"
 
-	"github.com/brunotm/kvs"
-
 	"github.com/brunotm/rexon"
+	"github.com/brunotm/tact/storage"
+)
+
+var (
+	deltaPrefix = []byte(`delta`)
 )
 
 // Blacklist type
@@ -33,14 +36,14 @@ type EventOps struct {
 	Delta        *DeltaOps
 }
 
-func (eo *EventOps) process(session *Session, event []byte) []byte {
+func (eo *EventOps) process(sess *Session, event []byte) []byte {
 	var err error
 	// Perform any specified field ops
 	if eo.FieldTypes != nil {
 		result := rexon.ParseJsonValues(event, eo.FieldTypes, eo.Round)
 		if result.Errors != nil {
 			for err := range result.Errors {
-				session.LogErr(result.Errors[err].Error())
+				sess.LogErr(result.Errors[err].Error())
 			}
 			return nil
 		}
@@ -49,9 +52,9 @@ func (eo *EventOps) process(session *Session, event []byte) []byte {
 
 	// Perform any specified delta ops
 	if eo.Delta != nil {
-		event, err = eo.eventDelta(session, event)
+		event, err = eo.eventDelta(sess, event)
 		if err != nil {
-			session.LogErr("runner: error calculating deltas for event: %s", event)
+			sess.LogErr("runner: error calculating deltas for event: %s", event)
 			return nil
 		}
 	}
@@ -60,36 +63,37 @@ func (eo *EventOps) process(session *Session, event []byte) []byte {
 }
 
 // eventDelta perform delta and rate calculation
-func (eo *EventOps) eventDelta(session *Session, event []byte) ([]byte, error) {
+func (eo *EventOps) eventDelta(sess *Session, event []byte) ([]byte, error) {
 
 	// Get any specified event unique attribute key, empty string otherwise
 	keyVal, _ := rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)
 
 	// Set the timestamp on the current event for caching
-	event, err := rexon.JSONSet(event, session.timeCurrent, KeyTimeStamp)
+	event, err := rexon.JSONSet(event, sess.timeCurrent, KeyTimeStamp)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get previous event for delta.
 	// If we can't find a existing event, store the current event and return
-	previous, err := Store.Get(session.name, session.node.HostName, keyVal)
+	key := append(deltaPrefix, []byte(sess.name+"/"+sess.node.HostName+"/"+keyVal)...)
+	previous, err := sess.txn.Get(key)
 	if err != nil {
-		if err == kvs.ErrNotFound {
-			return nil, Store.SetWithTTL(event, eo.Delta.TTL, session.name, session.node.HostName, keyVal)
+		if err == storage.ErrKeyNotFound {
+			return nil, sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
 		}
 		return nil, err
 	}
 
 	// Store the current event
-	err = Store.SetWithTTL(event, eo.Delta.TTL, session.name, session.node.HostName, keyVal)
+	err = sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse the current and previous events, and timestamps for calculations
 	previousTimestamp, _ := rexon.JSONGetInt(previous, KeyTimeStamp)
-	timeDelta := session.timeCurrent - previousTimestamp
+	timeDelta := sess.timeCurrent - previousTimestamp
 
 	// Loop over the event fields and perform the operations specified for each one.
 	// if we get an error calculating stop return an error event to the stream

@@ -64,7 +64,7 @@ func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outChan c
 	// If it exists load the hash and seek position
 	var seek int64
 	var previousHash string
-	previousFstat, err := tact.Store.Get(session.Name(), session.Node().HostName, fileName)
+	previousFstat, err := session.Get([]byte(fileName))
 	if err == nil && previousFstat != nil {
 		seek, _ = rexon.JSONGetInt(previousFstat, "size")
 		previousHash, _ = rexon.JSONGetUnsafeString(previousFstat, "hash")
@@ -104,7 +104,7 @@ func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outChan c
 	}
 
 	// Store the current file stat document
-	if err := tact.Store.Set(currentFstat, session.Name(), session.Node().HostName, fileName); err != nil {
+	if err := session.Set([]byte(fileName), currentFstat); err != nil {
 		session.LogErr("sftprex: storing fstat document for file: %s, error: %s", fileName, err.Error())
 	}
 

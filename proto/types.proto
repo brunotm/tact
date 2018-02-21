@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package proto;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+option (gogoproto.sizer_all) = true;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (gogoproto.unsafe_marshaler_all) = true;
+option (gogoproto.unsafe_unmarshaler_all) = true;
+option (gogoproto.goproto_getters_all) = false;
+
+// message Node {
+// 	string host_name				= 1 [(gogoproto.customname) = "HostName"];
+// 	string net_addr					= 2 [(gogoproto.customname) = "NetAddr"];
+// 	string type						= 3 [(gogoproto.customname) = "Type"];
+// 	string ssh_user					= 4 [(gogoproto.customname) = "SSHUser"];
+// 	bytes  ssh_key					= 5 [(gogoproto.customname) = "SSHKey"];
+// 	string ssh_password				= 6 [(gogoproto.customname) = "SSHPassword"];
+// 	string api_url					= 7 [(gogoproto.customname) = "APIUrl"];
+// 	string api_user					= 8 [(gogoproto.customname) = "APIUser"];
+// 	string api_password				= 9 [(gogoproto.customname) = "APIPassword"];
+// 	string db_user					= 10 [(gogoproto.customname) = "DBUser"];
+// 	string db_password				= 11 [(gogoproto.customname) = "DBPassword"];
+// 	string db_port					= 12 [(gogoproto.customname) = "DBPort"];
+// 	map<string, string> log_files	= 13 [(gogoproto.customname) = "LogFiles"];
+// }
+
+
+message Cache {
+	repeated bytes data			= 1;
+}

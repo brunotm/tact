@@ -4,44 +4,53 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/brunotm/kvs"
 	"github.com/brunotm/rexon"
+	"github.com/brunotm/tact/proto"
+	"github.com/brunotm/tact/storage"
+)
+
+var (
+	cachePrefix = []byte(`cache`)
 )
 
 // GetCache returns a cached or new map[keyfield]value for the given collector
-func getCache(session *Session, ttl time.Duration, collname string, keyFields []string) (cache map[string][]byte, err error) {
-	collector := Registry.Get(collname)
+func getCache(sess *Session, ttl time.Duration, collname string, keyFields []string) (cache map[string][]byte, err error) {
 
-	// Return if we get an error from the underlying store other than ErrNotFound
-	_, err = Store.Get(cachePrefix, collector.Name, session.node.HostName, KeyLastTimestamp)
-	if err != nil && err != kvs.ErrNotFound {
+	// Get last data
+	data, err := sess.txn.Get(append(cachePrefix, []byte(collname+"/"+sess.node.HostName)...))
+
+	// If not cached run collector
+	if err == storage.ErrKeyNotFound {
+		return cacheRun(sess, collname, keyFields, ttl)
+	}
+
+	if err != nil {
 		return nil, err
 	}
 
-	// If not cached run collector
-	if err == kvs.ErrNotFound {
-		return cacheRun(session, collector, keyFields, ttl)
-	}
-
-	// If everything still valid load cache from the store
-	events, err := Store.GetTree(cachePrefix, collector.Name, session.node.HostName)
+	cacheData := &proto.Cache{}
+	err = cacheData.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	// Build index with given keys
 	cache = make(map[string][]byte)
-	for i := range events {
+	for i := range cacheData.Data {
 		for kf := range keyFields {
-			if key, err := rexon.JSONGetUnsafeString(events[i].Value, keyFields[kf]); err == nil {
-				cache[key] = events[i].Value
+			if key, err := rexon.JSONGetUnsafeString(cacheData.Data[i], keyFields[kf]); err == nil {
+				cache[key] = cacheData.Data[i]
+			} else {
+				sess.LogErr("could not index: %s, with key: %s, error: %s", string(cacheData.Data[i]), keyFields[kf], err.Error())
 			}
 		}
 	}
 	return cache, err
 }
 
-func cacheRun(sess *Session, collector *Collector, keyFields []string, ttl time.Duration) (cache map[string][]byte, err error) {
+func cacheRun(sess *Session, collname string, keyFields []string, ttl time.Duration) (cache map[string][]byte, err error) {
+	collector := Registry.Get(collname)
+
 	if len(keyFields) == 0 {
 		return nil, fmt.Errorf("empty key fields for caching")
 	}
@@ -55,9 +64,7 @@ func cacheRun(sess *Session, collector *Collector, keyFields []string, ttl time.
 		close(wchan)
 	}()
 
-	batch := Store.NewBatch()
-	batch.SetWithTTL(nil, ttl, cachePrefix, collector.Name, sess.node.HostName, KeyLastTimestamp)
-
+	cacheData := &proto.Cache{}
 	for event := range wchan {
 		for i := range keyFields {
 			key, err := rexon.JSONGetUnsafeString(event, keyFields[i])
@@ -65,13 +72,14 @@ func cacheRun(sess *Session, collector *Collector, keyFields []string, ttl time.
 				continue
 			}
 			cache[key] = event
-
-			// Use the 1st key field to keep in Store.
-			if i == 0 {
-				batch.SetWithTTL(event, ttl, cachePrefix, collector.Name, sess.node.HostName, key)
-			}
+			cacheData.Data = append(cacheData.Data, event)
 		}
 	}
 
-	return cache, batch.Write()
+	data, err := cacheData.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return cache, sess.txn.SetWithTTL(append(cachePrefix, []byte(collname+"/"+sess.node.HostName)...), data, ttl)
 }

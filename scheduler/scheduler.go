@@ -47,7 +47,7 @@ func New(maxTasks int, grace time.Duration, wchan chan []byte) (sched *Scheduler
 // AddJob function
 func (s *Scheduler) AddJob(spec string, coll *tact.Collector, node *tact.Node, ttl time.Duration) (err error) {
 	jobname := fmt.Sprintf("%s/%s", coll.Name, node.HostName)
-	sess := tact.NewSession(s.ctx, coll.Name, node, ttl)
+	sess := tact.NewSession(s.ctx, coll.Name, node, tact.Store, ttl)
 
 	fn := func() {
 		if !s.addRun(jobname, sess) {

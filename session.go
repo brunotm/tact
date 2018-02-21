@@ -7,6 +7,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/brunotm/rexon"
+	"github.com/brunotm/tact/storage"
+)
+
+var (
+	keyLastTime = []byte("last_timestamp")
 )
 
 // Session holds the context and session data
@@ -20,21 +25,27 @@ type Session struct {
 	timeLast    int64
 	timeout     time.Duration
 	cache       map[string]map[string][]byte
+	dataPath    []byte
+	store       *storage.Store
+	txn         *storage.Txn
 }
 
 // NewSession creates a new session
-func NewSession(ctx context.Context, name string, node *Node, ttl time.Duration) (s *Session) {
+func NewSession(ctx context.Context, name string, node *Node, store *storage.Store, ttl time.Duration) (s *Session) {
 	s = &Session{}
 	s.name = name
 	s.ctx = ctx
 	s.timeout = ttl
 	s.node = node
+	s.store = store
+	s.dataPath = []byte(fmt.Sprintf("session/%s/%s/", name, node.HostName))
 	return s
 }
 
 // Start session setting up last time, cache storage and cancellation
 func (s *Session) Start() {
 	// TODO: refactor to error out
+	s.txn = s.store.NewTxn(true)
 	s.loadLastTime()
 	s.cache = make(map[string]map[string][]byte)
 	s.timeCurrent = time.Now().Unix()
@@ -44,21 +55,43 @@ func (s *Session) Start() {
 	} else {
 		s.ctx, s.ctxCancel = context.WithCancel(s.ctx)
 	}
+
+	// Ensure we discard our storage transaction
+	go func() {
+		<-s.ctx.Done()
+		s.txn.Discard()
+	}()
+
 }
 
-// done successfully terminates session
-func (s *Session) done() {
-	s.close(true)
+// Get value for the given key
+func (s *Session) Get(key []byte) (value []byte, err error) {
+	return s.txn.Get(append(s.dataPath, key...))
 }
 
-// cancel session
-func (s *Session) cancel() {
-	s.close(false)
+// GetTree for the given prefix
+func (s *Session) GetTree(prefix []byte) (entries []storage.Entry, err error) {
+	return s.txn.GetTree(append(s.dataPath, prefix...))
 }
 
-// child creates a new session within the current session context
-func (s *Session) child(name string) *Session {
-	return NewSession(s.ctx, name, s.node, s.timeout)
+// Set value for the given key
+func (s *Session) Set(key, value []byte) (err error) {
+	return s.txn.Set(append(s.dataPath, key...), value)
+}
+
+// SetWithTTL value for the given key
+func (s *Session) SetWithTTL(key, value []byte, ttl time.Duration) (err error) {
+	return s.txn.SetWithTTL(append(s.dataPath, key...), value, ttl)
+}
+
+// Delete the given key
+func (s *Session) Delete(key []byte) (err error) {
+	return s.txn.Delete(append(s.dataPath, key...))
+}
+
+// DeleteTree for the given prefix
+func (s *Session) DeleteTree(prefix []byte) (err error) {
+	return s.txn.DeleteTree(append(s.dataPath, prefix...))
 }
 
 // Node returns this session node
@@ -81,9 +114,27 @@ func (s *Session) LastTime() int64 {
 	return s.timeLast
 }
 
+// done successfully terminates session
+func (s *Session) done() {
+	s.close(true)
+}
+
+// cancel session
+func (s *Session) cancel() {
+	s.close(false)
+}
+
+// child creates a new session within the current session context
+func (s *Session) child(name string) *Session {
+	return NewSession(s.ctx, name, s.node, s.store, s.timeout)
+}
+
 func (s *Session) close(ok bool) {
 	if ok {
 		s.storeLastTime()
+		if err := s.txn.Commit(); err != nil {
+			s.LogErr("%s writing session data", err.Error())
+		}
 	}
 	s.ctxCancel()
 	s.timeCurrent = 0
@@ -93,13 +144,13 @@ func (s *Session) close(ok bool) {
 
 func (s *Session) storeLastTime() {
 	lb := uint64Bytes(uint64(s.timeCurrent))
-	if err := Store.Set(lb, s.name, s.node.HostName, KeyLastTimestamp); err != nil {
-		s.LogErr("store last time: %s", err.Error())
+	if err := s.Set(keyLastTime, lb); err != nil {
+		s.LogErr("storing last time: %s", err.Error())
 	}
 }
 
 func (s *Session) loadLastTime() {
-	lb, err := Store.Get(s.name, s.node.HostName, KeyLastTimestamp)
+	lb, err := s.Get(keyLastTime)
 	if err != nil {
 		return
 	}

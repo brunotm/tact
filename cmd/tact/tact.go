@@ -93,7 +93,7 @@ func main() {
 		<-quit
 
 	} else {
-		sess := tact.NewSession(context.Background(), *collector, node, 290*time.Second)
+		sess := tact.NewSession(context.Background(), *collector, node, tact.Store, 290*time.Second)
 		coll.Start(sess, wchan)
 		return
 	}
