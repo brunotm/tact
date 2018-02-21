@@ -4,7 +4,6 @@ package linux
 // https://www.kernel.org/doc/Documentation/iostats.txt
 
 import (
-	"bytes"
 	"time"
 
 	"github.com/brunotm/rexon"
@@ -17,24 +16,23 @@ func init() {
 	tact.Registry.Add(ioStat)
 }
 
-const (
-	ioStatCmd = "/usr/bin/iostat -dxk 60 2"
-)
-
-var (
-	ioStatFields12 = []string{"device", "rrqm", "wrqm", "rps", "wps",
-		"kbread", "kbwrtn", "avgrqsz", "avgsqusz", "await", "svctm", "util"}
-	ioStatFields14 = []string{"device", "rrqm", "wrqm", "rps", "wps",
-		"kbread", "kbwrtn", "avgrqsz", "avgqusz", "await", "r_await", "w_await", "svctm", "util"}
-)
-
 var ioStat = &tact.Collector{
 	Name:    "/linux/performance/iostat",
 	GetData: ioStatFn,
+	PostOps: ioStatPostOps,
 	EventOps: &tact.EventOps{
+		Round: 2,
 		FieldTypes: map[string]rexon.ValueType{
 			rexon.KeyTypeAll: rexon.TypeNumber,
+			"maj":            rexon.TypeString,
+			"min":            rexon.TypeString,
 			"device":         rexon.TypeString,
+		},
+		Delta: &tact.DeltaOps{
+			KeyField:  "device",
+			TTL:       15 * time.Minute,
+			Rate:      true,
+			Blacklist: tact.BuildBlackList("device", "maj", "min", "in_flight_ios"),
 		},
 	},
 	Joins: []*tact.Join{
@@ -62,64 +60,44 @@ var ioStat = &tact.Collector{
 	},
 }
 
+var ioStatParser = &rexon.RexLine{
+	Rex: rexon.RexMustCompile(`(\d+)\s+(\d+)\s+(.*?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)`),
+	Fields: []string{
+		"maj", "min", "device",
+		"avg_reads", "avg_reads_merged", "avg_read_kb", "avg_read_svctm_ms",
+		"avg_writes", "avg_writes_merged", "avg_write_kb", "avg_write_svctm_ms",
+		"in_flight_ios", "avg_svctm_ms", "avg_wait_ms"},
+}
+
 func ioStatFn(session *tact.Session) <-chan []byte {
-	outChan := make(chan []byte)
+	return collector.SSHRex(session, "cat /proc/diskstats", ioStatParser)
+}
 
-	go func() {
-		defer close(outChan)
+func ioStatPostOps(event []byte) ([]byte, error) {
 
-		scanner := collector.SSHScanner(session, ioStatCmd)
-		if scanner == nil {
-			return
-		}
+	// calculate avg_io_rate
+	reads, _ := rexon.JSONGetFloat(event, "avg_reads")
+	writes, _ := rexon.JSONGetFloat(event, "avg_writes")
+	event, _ = rexon.JSONSet(event, rexon.Round(reads+writes, 2), "avg_io_rate")
 
-		// the current metric snapshot
-		window := 0
+	// maj:min
+	maj, _ := rexon.JSONGetUnsafeString(event, "maj")
+	min, _ := rexon.JSONGetUnsafeString(event, "min")
+	event, _ = rexon.JSONSet(event, maj+":"+min, "maj_min")
+	event = rexon.JSONDelete(event, "maj")
+	event = rexon.JSONDelete(event, "min")
 
-		for scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				session.LogErr("error reading data: %s", err.Error())
-				return
-			}
-			line := bytes.TrimSpace(scanner.Bytes())
+	// avg_read/write_kb
+	readSect, _ := rexon.JSONGetFloat(event, "avg_read_kb")
+	event, _ = rexon.JSONSet(event, (readSect*512)/1024, "avg_read_kb")
+	writeSect, _ := rexon.JSONGetFloat(event, "avg_write_kb")
+	event, _ = rexon.JSONSet(event, (writeSect*512)/1024, "avg_write_kb")
 
-			// Check and increment window
-			if bytes.Contains(line, []byte("Device")) {
-				if window < 2 {
-					window++
-					continue
-				}
-			}
+	// avg_wait_ms and avg_svctm_total_ms
+	svctm, _ := rexon.JSONGetFloat(event, "avg_svctm_ms")
+	wait, _ := rexon.JSONGetFloat(event, "avg_wait_ms")
+	event, _ = rexon.JSONSet(event, rexon.Round(wait-svctm, 2), "avg_wait_ms")
+	event, _ = rexon.JSONSet(event, wait, "avg_svctm_total_ms")
 
-			// Only proceed if we're in the correct window
-			if window < 2 {
-				continue
-			}
-
-			values := bytes.Fields(line)
-			if len(values) == 12 {
-				var event []byte
-				for x := 0; x <= 11; x++ {
-					event, _ = rexon.JSONSet(event, values[x], ioStatFields12[x])
-				}
-				if !tact.WrapCtxSend(session.Context(), outChan, event) {
-					session.LogErr("timeout sending event upstream")
-					return
-				}
-			}
-
-			if len(values) == 14 {
-				var event []byte
-				for x := 0; x <= 13; x++ {
-					event, _ = rexon.JSONSet(event, values[x], ioStatFields14[x])
-				}
-				if !tact.WrapCtxSend(session.Context(), outChan, event) {
-					session.LogErr("timeout sending event upstream")
-					return
-				}
-			}
-		}
-
-	}()
-	return outChan
+	return event, nil
 }
