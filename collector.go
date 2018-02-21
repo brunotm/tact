@@ -65,7 +65,7 @@ func (c *Collector) Start(sess *Session, writeCh chan<- []byte) {
 			if c.PostOps != nil {
 				newEvent, err := c.PostOps(event)
 				if err != nil {
-					sess.LogErr("post ops processing error: %s, event: %s", err.Error(), string(event))
+					sess.LogErr("post ops error: %s, event: %s", err.Error(), string(event))
 					continue
 				}
 				event = newEvent

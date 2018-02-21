@@ -54,7 +54,7 @@ func (eo *EventOps) process(sess *Session, event []byte) []byte {
 	if eo.Delta != nil {
 		event, err = eo.eventDelta(sess, event)
 		if err != nil {
-			sess.LogErr("runner: error calculating deltas for event: %s", event)
+			sess.LogErr("%s calculating deltas for event: %s", err.Error(), event)
 			return nil
 		}
 	}
@@ -78,6 +78,7 @@ func (eo *EventOps) eventDelta(sess *Session, event []byte) ([]byte, error) {
 	// If we can't find a existing event, store the current event and return
 	key := append(deltaPrefix, []byte(sess.name+"/"+sess.node.HostName+"/"+keyVal)...)
 	previous, err := sess.txn.Get(key)
+
 	if err != nil {
 		if err == storage.ErrKeyNotFound {
 			return nil, sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
