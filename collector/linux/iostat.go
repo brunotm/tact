@@ -39,22 +39,22 @@ var ioStat = &tact.Collector{
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
-			JoinFields:    []string{"device"},
-			JoinOnFields:  []string{"dm_device", "device"},
+			JoinFields:    []string{"maj_min"},
+			JoinOnFields:  []string{"maj_min"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "dm_device"},
 		},
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/pvs",
-			JoinFields:    []string{"device"},
-			JoinOnFields:  []string{"dm_device", "device"},
+			JoinFields:    []string{"maj_min"},
+			JoinOnFields:  []string{"maj_min"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "vg_name", "vg_type", "vg_mode"},
 		},
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/asm",
-			JoinFields:    []string{"device"},
-			JoinOnFields:  []string{"dm_device", "device"},
+			JoinFields:    []string{"maj_min"},
+			JoinOnFields:  []string{"maj_min"},
 			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "vg_name", "vg_type", "vg_mode", "asm_device"},
 		},
 	},
@@ -76,28 +76,28 @@ func ioStatFn(session *tact.Session) <-chan []byte {
 func ioStatPostOps(event []byte) ([]byte, error) {
 
 	// calculate avg_io_rate
-	reads, _ := rexon.JSONGetFloat(event, "avg_reads")
-	writes, _ := rexon.JSONGetFloat(event, "avg_writes")
-	event, _ = rexon.JSONSet(event, rexon.Round(reads+writes, 2), "avg_io_rate")
+	reads, err := rexon.JSONGetFloat(event, "avg_reads")
+	writes, err := rexon.JSONGetFloat(event, "avg_writes")
+	event, err = rexon.JSONSet(event, rexon.Round(reads+writes, 2), "avg_io_rate")
 
 	// maj:min
-	maj, _ := rexon.JSONGetUnsafeString(event, "maj")
-	min, _ := rexon.JSONGetUnsafeString(event, "min")
-	event, _ = rexon.JSONSet(event, maj+":"+min, "maj_min")
+	maj, err := rexon.JSONGetUnsafeString(event, "maj")
+	min, err := rexon.JSONGetUnsafeString(event, "min")
+	event, err = rexon.JSONSet(event, maj+":"+min, "maj_min")
 	event = rexon.JSONDelete(event, "maj")
 	event = rexon.JSONDelete(event, "min")
 
 	// avg_read/write_kb
-	readSect, _ := rexon.JSONGetFloat(event, "avg_read_kb")
-	event, _ = rexon.JSONSet(event, (readSect*512)/1024, "avg_read_kb")
-	writeSect, _ := rexon.JSONGetFloat(event, "avg_write_kb")
-	event, _ = rexon.JSONSet(event, (writeSect*512)/1024, "avg_write_kb")
+	readSect, err := rexon.JSONGetFloat(event, "avg_read_kb")
+	event, err = rexon.JSONSet(event, (readSect*512)/1024, "avg_read_kb")
+	writeSect, err := rexon.JSONGetFloat(event, "avg_write_kb")
+	event, err = rexon.JSONSet(event, (writeSect*512)/1024, "avg_write_kb")
 
 	// avg_wait_ms and avg_svctm_total_ms
-	svctm, _ := rexon.JSONGetFloat(event, "avg_svctm_ms")
-	wait, _ := rexon.JSONGetFloat(event, "avg_wait_ms")
-	event, _ = rexon.JSONSet(event, rexon.Round(wait-svctm, 2), "avg_wait_ms")
-	event, _ = rexon.JSONSet(event, wait, "avg_svctm_total_ms")
+	svctm, err := rexon.JSONGetFloat(event, "avg_svctm_ms")
+	wait, err := rexon.JSONGetFloat(event, "avg_wait_ms")
+	event, err = rexon.JSONSet(event, rexon.Round(wait-svctm, 2), "avg_wait_ms")
+	event, err = rexon.JSONSet(event, wait, "avg_svctm_total_ms")
 
-	return event, nil
+	return event, err
 }
