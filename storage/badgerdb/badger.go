@@ -1,8 +1,10 @@
-package storage
+package badgerdb
 
 import (
 	"os"
 	"time"
+
+	"github.com/brunotm/tact/storage"
 
 	"github.com/dgraph-io/badger"
 )
@@ -12,8 +14,10 @@ const (
 )
 
 var (
-	// ErrKeyNotFound error
-	ErrKeyNotFound = badger.ErrKeyNotFound
+	// Check if Store satisfies kvs.Store interface.
+	_ storage.Store = (*Store)(nil)
+	// Check if Store satisfies kvs.Store interface.
+	_ storage.Txn = (*Txn)(nil)
 )
 
 // Store type
@@ -45,7 +49,7 @@ func Open(path string) (store *Store, err error) {
 	store.db = db
 	store.path = path
 
-	return store, store.RunGC()
+	return store, nil
 
 }
 
@@ -73,13 +77,8 @@ func (s *Store) RunGC() (err error) {
 }
 
 // NewTxn creates a rw/ro transaction
-func (s *Store) NewTxn(update bool) (txn *Txn) {
+func (s *Store) NewTxn(update bool) (txn storage.Txn) {
 	return &Txn{s.db.NewTransaction(update)}
-}
-
-// Entry key value
-type Entry struct {
-	Key, Value []byte
 }
 
 // Txn transaction
@@ -101,7 +100,7 @@ func (t *Txn) Commit() (err error) {
 func (t *Txn) Get(key []byte) (value []byte, err error) {
 	item, err := t.txn.Get(key)
 	if err == badger.ErrKeyNotFound {
-		return nil, ErrKeyNotFound
+		return nil, storage.ErrKeyNotFound
 	}
 
 	if err != nil {
@@ -111,26 +110,28 @@ func (t *Txn) Get(key []byte) (value []byte, err error) {
 	if value, err = item.Value(); err != nil {
 		return nil, err
 	}
-	return snappyDecode(value)
+	return storage.SnappyDecode(value)
 }
 
 // GetTree for the given prefix
-func (t *Txn) GetTree(prefix []byte) (entries []Entry, err error) {
-	var entry Entry
+func (t *Txn) GetTree(prefix []byte) (entries []storage.Entry, err error) {
+	var entry storage.Entry
 	var value []byte
 
 	it := t.txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		if value, err = item.Value(); err != nil {
 			return nil, err
 		}
 
-		if entry.Value, err = snappyDecode(value); err != nil {
+		if entry.Value, err = storage.SnappyDecode(value); err != nil {
 			return nil, err
 		}
 
-		entry.Key = copyBytes(item.Key())
+		entry.Key = storage.CopyBytes(item.Key())
 		entries = append(entries, entry)
 	}
 	return entries, nil
@@ -138,12 +139,12 @@ func (t *Txn) GetTree(prefix []byte) (entries []Entry, err error) {
 
 // Set value for the given key
 func (t *Txn) Set(key, value []byte) (err error) {
-	return t.txn.Set(key, snappyEncode(value))
+	return t.txn.Set(key, storage.SnappyEncode(value))
 }
 
 // SetWithTTL value for the given key
 func (t *Txn) SetWithTTL(key, value []byte, ttl time.Duration) (err error) {
-	return t.txn.SetWithTTL(key, snappyEncode(value), ttl)
+	return t.txn.SetWithTTL(key, storage.SnappyEncode(value), ttl)
 }
 
 // Delete the given key
@@ -157,6 +158,8 @@ func (t *Txn) DeleteTree(prefix []byte) (err error) {
 	opts.PrefetchValues = false
 
 	it := t.txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		if err = t.txn.Delete(item.Key()); err != nil {
