@@ -13,7 +13,7 @@ import (
 
 // Scheduler type
 type Scheduler struct {
-	*sync.RWMutex
+	mtx     sync.Mutex
 	ctx     context.Context          // Main context that will be propagated to running collectors
 	cancel  context.CancelFunc       // Cancel function of main context
 	grace   time.Duration            // Grace period before failing a start when acquiring a run slot
@@ -33,7 +33,7 @@ func New(maxTasks int, grace time.Duration, wchan chan []byte) (sched *Scheduler
 	}
 
 	return &Scheduler{
-		RWMutex: &sync.RWMutex{},
+		mtx:     sync.Mutex{},
 		ctx:     ctx,
 		cancel:  cancel,
 		grace:   grace,
@@ -77,8 +77,8 @@ func (s *Scheduler) Start() {
 
 // Stop the scheduler and wait for runnning jobs to finish
 func (s *Scheduler) Stop() {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
 	s.cron.Stop()
 	s.waitJobs()
@@ -88,8 +88,8 @@ func (s *Scheduler) Stop() {
 
 // Cancel the scheduler and runnning jobs
 func (s *Scheduler) Cancel() {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
 	s.cron.Stop()
 	s.cancel()
@@ -109,8 +109,8 @@ func (s *Scheduler) waitJobs() {
 }
 
 func (s *Scheduler) addRun(name string, session *tact.Session) bool {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
 	if _, running := s.running[name]; running {
 		return false
@@ -120,8 +120,8 @@ func (s *Scheduler) addRun(name string, session *tact.Session) bool {
 }
 
 func (s *Scheduler) removeRun(name string) bool {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
 	if _, running := s.running[name]; !running {
 		return false
