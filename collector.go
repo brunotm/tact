@@ -88,9 +88,11 @@ func (c *Collector) Start(sess *Session, writeCh chan<- []byte) {
 func (c *Collector) buildRunCache(session *Session) (err error) {
 	if len(c.Joins) > 0 {
 		for _, join := range c.Joins {
-			err := join.loadData(session)
-			if err != nil {
-				return err
+			if _, ok := session.cache[join.Name]; !ok {
+				err := join.loadData(session)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -81,6 +81,7 @@ func (eo *EventOps) eventDelta(sess *Session, event []byte) ([]byte, error) {
 
 	if err != nil {
 		if err == storage.ErrKeyNotFound {
+			sess.LogDebug("key: %s not in cache", keyVal)
 			return nil, sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
 		}
 		return nil, err

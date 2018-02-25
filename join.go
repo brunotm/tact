@@ -44,11 +44,11 @@ func (j *Join) join(session *Session, event []byte, joinField string) (joined []
 }
 
 func (j *Join) loadData(session *Session) (err error) {
-	// TODO: make loading indempotent
 	cache, err := getCache(session, j.TTL, j.Name, j.JoinOnFields)
 	if err != nil {
 		return fmt.Errorf("cache load for %s error: %s", j.Name, err.Error())
 	}
+	session.LogDebug("cache load for %s, len %d", j.Name, len(cache))
 	session.cache[j.Name] = cache
 	return nil
 }

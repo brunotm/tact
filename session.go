@@ -20,21 +20,22 @@ type Session struct {
 	name        string
 	node        *Node
 	ctx         context.Context
+	ctxParent   context.Context
 	ctxCancel   context.CancelFunc
+	timeout     time.Duration
 	timeCurrent int64
 	timeLast    int64
-	timeout     time.Duration
 	cache       map[string]map[string][]byte
 	dataPath    []byte
-	store       *storage.Store
-	txn         *storage.Txn
+	store       storage.Store
+	txn         storage.Txn
 }
 
 // NewSession creates a new session
-func NewSession(ctx context.Context, name string, node *Node, store *storage.Store, ttl time.Duration) (s *Session) {
+func NewSession(ctx context.Context, name string, node *Node, store storage.Store, ttl time.Duration) (s *Session) {
 	s = &Session{}
 	s.name = name
-	s.ctx = ctx
+	s.ctxParent = ctx
 	s.timeout = ttl
 	s.node = node
 	s.store = store
@@ -47,20 +48,28 @@ func (s *Session) Start() {
 	// TODO: refactor to error out
 	s.txn = s.store.NewTxn(true)
 	s.loadLastTime()
-	s.cache = make(map[string]map[string][]byte)
 	s.timeCurrent = time.Now().Unix()
 
+	// Check if we're not sharing the underlying
+	// cache with child sessions
+	if s.cache == nil {
+		s.cache = make(map[string]map[string][]byte)
+	}
+
 	if s.timeout > 0 {
-		s.ctx, s.ctxCancel = context.WithTimeout(s.ctx, s.timeout)
+		s.ctx, s.ctxCancel = context.WithTimeout(s.ctxParent, s.timeout)
 	} else {
-		s.ctx, s.ctxCancel = context.WithCancel(s.ctx)
+		s.ctx, s.ctxCancel = context.WithCancel(s.ctxParent)
 	}
 
 	// Ensure we discard our storage transaction
 	go func() {
 		<-s.ctx.Done()
 		s.txn.Discard()
+		s.LogDebug("session context canceled and Txn discarded")
 	}()
+
+	s.LogDebug("session context and storage Txn created")
 
 }
 
@@ -125,17 +134,21 @@ func (s *Session) cancel() {
 }
 
 // child creates a new session within the current session context
-func (s *Session) child(name string) *Session {
-	return NewSession(s.ctx, name, s.node, s.store, s.timeout)
+func (s *Session) child(name string) (child *Session) {
+	child = NewSession(s.ctx, name, s.node, s.store, s.timeout)
+	child.cache = s.cache
+	return child
 }
 
 func (s *Session) close(ok bool) {
 	if ok {
+		s.LogDebug("commiting session data")
 		s.storeLastTime()
 		if err := s.txn.Commit(); err != nil {
 			s.LogErr("%s writing session data", err.Error())
 		}
 	}
+	s.LogDebug("cancel session context and reset state")
 	s.ctxCancel()
 	s.timeCurrent = 0
 	s.timeLast = 0
