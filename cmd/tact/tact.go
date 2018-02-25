@@ -32,13 +32,15 @@ var (
 	dbUser     = flag.String("dbuser", "", "log files, format name:path,name:path")
 	dbPassword = flag.String("dbpass", "", "log files, format name:path,name:path")
 	dbPort     = flag.String("dbport", "", "log files, format name:path,name:path")
-	collector  = flag.String("c", "", "Collector to run")
+	collector  = flag.String("c", "", "Collector or group to run")
 )
 
 func main() {
 	flag.Parse()
 
-	log.SetFormatter(&log.JSONFormatter{})
+	// log.SetFormatter(&log.JSONFormatter{})
+	lvl, _ := log.ParseLevel("DEBUG")
+	log.SetLevel(lvl)
 
 	node := &tact.Node{}
 
@@ -80,24 +82,55 @@ func main() {
 		}
 	}()
 
-	coll := tact.Registry.Get(*collector)
+	if collector == nil {
+		panic("no colector specified")
+	}
+
+	var coll *tact.Collector
+	var collGroup []*tact.Collector
+	if len(strings.Split(*collector, "/")) > 3 {
+		coll = tact.Registry.Get(*collector)
+	} else {
+		collGroup = tact.Registry.GetGroup(*collector)
+	}
+
 	if *sched {
-		sched := scheduler.New(1, 60*time.Second, wchan)
-		if err = sched.AddJob(*cron, coll, node, 290*time.Second); err != nil {
-			panic(err)
+		sched := scheduler.New(100, 60*time.Second, wchan)
+
+		if collGroup != nil {
+			for _, c := range collGroup {
+				if err = sched.AddJob(*cron, c, node, 290*time.Second); err != nil {
+					panic(err)
+				}
+			}
 		}
+
+		if coll != nil {
+			if err = sched.AddJob(*cron, coll, node, 290*time.Second); err != nil {
+				panic(err)
+			}
+		}
+
 		sched.Start()
-		defer sched.Stop()
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		<-quit
+		sched.Stop()
 
 	} else {
-		sess := tact.NewSession(context.Background(), *collector, node, tact.Store, 290*time.Second)
-		coll.Start(sess, wchan)
-		return
+		if collGroup != nil {
+			for _, c := range collGroup {
+				sess := tact.NewSession(context.Background(), c.Name, node, tact.Store, 290*time.Second)
+				c.Start(sess, wchan)
+			}
+		}
+
+		if coll != nil {
+			sess := tact.NewSession(context.Background(), *collector, node, tact.Store, 290*time.Second)
+			coll.Start(sess, wchan)
+		}
 	}
 
-	fmt.Println("#### Shutting down")
+	log.Info("Shutting down")
 	tact.Close()
 }
