@@ -33,13 +33,22 @@ var (
 	dbPassword = flag.String("dbpass", "", "log files, format name:path,name:path")
 	dbPort     = flag.String("dbport", "", "log files, format name:path,name:path")
 	collector  = flag.String("c", "", "Collector or group to run")
+	logLevel   = flag.String("log", "INFO", "Log level")
+	dataPath   = flag.String("datapath", "./statedb", "Path for state data")
 )
 
 func main() {
 	flag.Parse()
+	var err error
+
+	tact.Init(*dataPath)
 
 	// log.SetFormatter(&log.JSONFormatter{})
-	lvl, _ := log.ParseLevel("DEBUG")
+	lvl, err := log.ParseLevel(*logLevel)
+	if err != nil {
+		log.Println("Invalid log level")
+		return
+	}
 	log.SetLevel(lvl)
 
 	node := &tact.Node{}
@@ -51,7 +60,6 @@ func main() {
 		node.NetAddr = *netAddr
 	}
 
-	var err error
 	var sshKey []byte
 	if *key != "" {
 		sshKey, err = ioutil.ReadFile(*key)
