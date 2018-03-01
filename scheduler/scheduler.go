@@ -59,6 +59,7 @@ func (s *Scheduler) AddJob(spec string, coll *tact.Collector, node *tact.Node, t
 			return
 		}
 		defer s.sema.Release()
+		sess.LogDebug("aquired scheduler run slot")
 
 		coll.Start(sess, s.wchan)
 
