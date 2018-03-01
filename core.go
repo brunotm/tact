@@ -19,13 +19,17 @@ var (
 
 // init the core
 func init() {
-	var err error
 	Registry = &registry{
 		mtx:        &sync.RWMutex{},
 		collectors: map[string]*Collector{},
 		groups:     map[string][]*Collector{},
 	}
-	Store, err = badgerdb.Open("./statedb") // TODO: make path configurable
+}
+
+// Init initializes core structures
+func Init(path string) {
+	var err error
+	Store, err = badgerdb.Open(path, true)
 	if err != nil {
 		panic(err)
 	}

@@ -22,12 +22,13 @@ var (
 
 // Store type
 type Store struct {
-	db   *badger.DB
-	path string
+	db     *badger.DB
+	path   string
+	stopCh chan struct{}
 }
 
 // Open or creates a store
-func Open(path string) (store *Store, err error) {
+func Open(path string, autoGC bool) (store *Store, err error) {
 	if err = os.MkdirAll(path, 0755); err != nil {
 		return nil, err
 	}
@@ -48,6 +49,11 @@ func Open(path string) (store *Store, err error) {
 	store = &Store{}
 	store.db = db
 	store.path = path
+	store.stopCh = make(chan struct{})
+
+	if autoGC {
+		go store.keeper()
+	}
 
 	return store, nil
 
@@ -55,6 +61,7 @@ func Open(path string) (store *Store, err error) {
 
 // Close the current Store
 func (s *Store) Close() (err error) {
+	close(s.stopCh)
 	return s.db.Close()
 }
 
@@ -167,4 +174,17 @@ func (t *Txn) DeleteTree(prefix []byte) (err error) {
 		}
 	}
 	return nil
+}
+
+func (s *Store) keeper() {
+	ticker := time.NewTicker(time.Hour)
+	for {
+		select {
+		case <-s.stopCh:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			s.RunGC()
+		}
+	}
 }
