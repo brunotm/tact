@@ -12,7 +12,6 @@ const (
 	ioStatCmd = "/usr/bin/iostat -DRVl 60 1"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(ioStat)
 }
@@ -55,15 +54,15 @@ var ioStatParser = &rexon.RexLine{
 }
 
 // iostat collector
-func ioStatFn(session *tact.Session) <-chan []byte {
-	outChan := make(chan []byte)
-	inChan := collector.SSHRex(session, ioStatCmd, ioStatParser)
+func ioStatFn(session *tact.Session) (events <-chan []byte) {
+	outCh := make(chan []byte)
+	inCh := collector.SSHRex(session, ioStatCmd, ioStatParser)
 
 	// Lauch a goroutine to intercept the events and convert
 	// the value for keys below from a size string notation to the specified unit
 	go func() {
-		defer close(outChan)
-		for event := range inChan {
+		defer close(outCh)
+		for event := range inCh {
 			// Parse the human readable values for the given keys
 			// Cannot do this as a PostOps because of units parsing
 			for _, key := range []string{"kbps", "kbread", "kbwrtn"} {
@@ -82,11 +81,11 @@ func ioStatFn(session *tact.Session) <-chan []byte {
 					continue
 				}
 			}
-			if !tact.WrapCtxSend(session.Context(), outChan, event) {
+			if !tact.WrapCtxSend(session.Context(), outCh, event) {
 				session.LogErr("timeout sending event upstream")
 			}
 		}
 	}()
 
-	return outChan
+	return outCh
 }

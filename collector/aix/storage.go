@@ -10,7 +10,6 @@ const (
 	inqRex  = `^/dev/r(hdisk\d+)\s+(\w+)\s+(\w+)\s+(\w+)`
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(storage)
 }

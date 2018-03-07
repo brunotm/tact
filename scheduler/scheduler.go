@@ -50,16 +50,17 @@ func (s *Scheduler) AddJob(spec string, coll *tact.Collector, node *tact.Node, t
 	sess := tact.NewSession(s.ctx, coll.Name, node, tact.Store, ttl)
 
 	fn := func() {
-		if !s.addRun(jobname, sess) {
-			sess.LogErr("scheduler: Already running")
-		}
-
 		if !s.sema.AcquireWithin(s.grace) {
 			sess.LogErr("scheduler: Timeout waiting for slot")
 			return
 		}
 		defer s.sema.Release()
 		sess.LogDebug("aquired scheduler run slot")
+
+		if !s.addRun(jobname, sess) {
+			sess.LogErr("scheduler: Already running")
+			return
+		}
 
 		coll.Start(sess, s.wchan)
 
@@ -109,7 +110,7 @@ func (s *Scheduler) waitJobs() {
 	}
 }
 
-func (s *Scheduler) addRun(name string, session *tact.Session) bool {
+func (s *Scheduler) addRun(name string, session *tact.Session) (ok bool) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -120,7 +121,7 @@ func (s *Scheduler) addRun(name string, session *tact.Session) bool {
 	return true
 }
 
-func (s *Scheduler) removeRun(name string) bool {
+func (s *Scheduler) removeRun(name string) (ok bool) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 

@@ -14,7 +14,6 @@ const (
 	timeLayout = "Jan 2 15:04:05 2006"
 )
 
-// add collector to registry
 func init() {
 	tact.Registry.Add(logMessages)
 }
@@ -34,11 +33,11 @@ var logMessagesParser = &rexon.RexLine{
 		"pid":            rexon.TypeNumber},
 }
 
-func logMessagesFn(session *tact.Session) (outCh <-chan []byte) {
+func logMessagesFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SFTPRex(session, fileName, logMessagesParser)
 }
 
-func logMessagesPostOps(event []byte) ([]byte, error) {
+func logMessagesPostOps(event []byte) (out []byte, err error) {
 	ts, _ := rexon.JSONGetUnsafeString(event, tact.KeyTimeStamp)
 	timestamp, err := time.Parse(timeLayout, fmt.Sprintf("%s %d", ts, time.Now().Year()))
 	if err != nil {

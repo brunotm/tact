@@ -14,7 +14,6 @@ const (
 	fcStatCmd = "fcstat "
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(fcStat)
 }
@@ -98,11 +97,11 @@ var fcStatParser = &rexon.RexSet{
 }
 
 // FCStat collector
-func fcStatFn(session *tact.Session) <-chan []byte {
-	outChan := make(chan []byte)
+func fcStatFn(session *tact.Session) (events <-chan []byte) {
+	outCh := make(chan []byte)
 
 	go func() {
-		defer close(outChan)
+		defer close(outCh)
 
 		sshSession, err := sshmgr.Manager.GetSSHSession(collector.NewSSHNodeConfig(session.Node()))
 		if err != nil {
@@ -139,7 +138,7 @@ func fcStatFn(session *tact.Session) <-chan []byte {
 				for e := range result.Errors {
 					session.LogErr(result.Errors[e].Error())
 				}
-				if !tact.WrapCtxSend(session.Context(), outChan, result.Data) {
+				if !tact.WrapCtxSend(session.Context(), outCh, result.Data) {
 					session.LogErr("timeout sending event upstream")
 					return
 				}
@@ -147,5 +146,5 @@ func fcStatFn(session *tact.Session) <-chan []byte {
 		}
 	}()
 
-	return outChan
+	return outCh
 }

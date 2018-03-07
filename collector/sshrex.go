@@ -15,7 +15,7 @@ const (
 )
 
 // SSHScanner collector base
-func SSHScanner(session *tact.Session, cmd string) *bufio.Scanner {
+func SSHScanner(session *tact.Session, cmd string) (scan *bufio.Scanner) {
 	sshSession, err := sshmgr.Manager.GetSSHSession(NewSSHNodeConfig(session.Node()))
 	if err != nil {
 		session.LogErr("sshscanner: error getting ssh session: %s", err.Error())
@@ -56,14 +56,14 @@ func SSHScanner(session *tact.Session, cmd string) *bufio.Scanner {
 }
 
 // SSHRex collector base
-func SSHRex(session *tact.Session, cmd string, rex rexon.Parser) <-chan []byte {
-	outChan := make(chan []byte)
-	go sshRex(session, cmd, rex, outChan)
-	return outChan
+func SSHRex(session *tact.Session, cmd string, rex rexon.Parser) (events <-chan []byte) {
+	outCh := make(chan []byte)
+	go sshRex(session, cmd, rex, outCh)
+	return outCh
 }
 
-func sshRex(session *tact.Session, cmd string, rex rexon.Parser, outChan chan<- []byte) {
-	defer close(outChan)
+func sshRex(session *tact.Session, cmd string, rex rexon.Parser, outCh chan<- []byte) {
+	defer close(outCh)
 
 	sshSession, err := sshmgr.Manager.GetSSHSession(NewSSHNodeConfig(session.Node()))
 	if err != nil {
@@ -117,7 +117,7 @@ func sshRex(session *tact.Session, cmd string, rex rexon.Parser, outChan chan<- 
 			continue
 		}
 
-		if !tact.WrapCtxSend(session.Context(), outChan, result.Data) {
+		if !tact.WrapCtxSend(session.Context(), outCh, result.Data) {
 			session.LogErr("sshrex: timed out sending event to upstream processing")
 			return
 		}

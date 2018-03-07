@@ -37,7 +37,7 @@ func (r *registry) Add(collector *Collector) {
 }
 
 // Get fetches the Collector for the given name
-func (r *registry) Get(name string) *Collector {
+func (r *registry) Get(name string) (collector *Collector) {
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 
@@ -50,7 +50,7 @@ func (r *registry) Get(name string) *Collector {
 }
 
 // GetGroup fetches the Collector for the given name
-func (r *registry) GetGroup(name string) []*Collector {
+func (r *registry) GetGroup(name string) (collectors []*Collector) {
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 

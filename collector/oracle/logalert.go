@@ -46,7 +46,7 @@ var logAlertParser = &rexon.RexSet{
 	}),
 }
 
-func logAlertFn(session *tact.Session) <-chan []byte {
+func logAlertFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SFTPRex(session, fileName, logAlertParser)
 }
 

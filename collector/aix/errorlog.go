@@ -15,7 +15,6 @@ const (
 	timeLayout = "0102150406"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(errorLog)
 }
@@ -32,7 +31,7 @@ var errorLogParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func errorLogFn(session *tact.Session) <-chan []byte {
+func errorLogFn(session *tact.Session) (events <-chan []byte) {
 
 	// If this is our first run set back the clock to gather events
 	timeLast := session.LastTime()
@@ -43,7 +42,7 @@ func errorLogFn(session *tact.Session) <-chan []byte {
 	return collector.SSHRex(session, errptCmd+time.Unix(timeLast, 0).Format(timeLayout), errorLogParser)
 }
 
-func errorLogPostOps(event []byte) ([]byte, error) {
+func errorLogPostOps(event []byte) (out []byte, err error) {
 	ts, _ := rexon.JSONGetUnsafeString(event, tact.KeyTimeStamp)
 	timestamp, err := time.Parse(timeLayout, ts)
 	if err != nil {

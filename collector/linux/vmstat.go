@@ -12,7 +12,6 @@ const (
 	vmstatCmd = "vmstat -sSK"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(NewVMStat())
 }
@@ -72,27 +71,30 @@ func NewVMStat() *tact.Collector {
 	parser.AddRex("avg_interrupts", `^(\d+)\s+interrupts`, rexon.TypeNumber)
 	parser.AddRex("avg_cpu_context_switches", `^(\d+)\s+CPU\s+context\s+switches`, rexon.TypeNumber)
 
-	vmstat.GetData = func(session *tact.Session) <-chan []byte {
+	vmstat.GetData = func(session *tact.Session) (events <-chan []byte) {
 		return collector.SSHRex(session, vmstatCmd, parser)
 	}
 
-	vmstat.PostOps = func(event []byte) ([]byte, error) {
+	vmstat.PostOps = func(event []byte) (out []byte, err error) {
 
-		userTicks, _ := rexon.JSONGetFloat(event, "cpu_user_ticks")
-		userNiceTicks, _ := rexon.JSONGetFloat(event, "cpu_usernice_ticks")
-		systemTicks, _ := rexon.JSONGetFloat(event, "cpu_system_ticks")
-		idleTicks, _ := rexon.JSONGetFloat(event, "cpu_idle_ticks")
-		waitTicks, _ := rexon.JSONGetFloat(event, "cpu_wait_ticks")
-		irqTicks, _ := rexon.JSONGetFloat(event, "cpu_irq_ticks")
-		sirqTicks, _ := rexon.JSONGetFloat(event, "cpu_softirq_ticks")
-		stealTicks, _ := rexon.JSONGetFloat(event, "cpu_stolen_ticks")
+		userTicks, err := rexon.JSONGetFloat(event, "cpu_user_ticks")
+		userNiceTicks, err := rexon.JSONGetFloat(event, "cpu_usernice_ticks")
+		systemTicks, err := rexon.JSONGetFloat(event, "cpu_system_ticks")
+		idleTicks, err := rexon.JSONGetFloat(event, "cpu_idle_ticks")
+		waitTicks, err := rexon.JSONGetFloat(event, "cpu_wait_ticks")
+		irqTicks, err := rexon.JSONGetFloat(event, "cpu_irq_ticks")
+		sirqTicks, err := rexon.JSONGetFloat(event, "cpu_softirq_ticks")
+		stealTicks, err := rexon.JSONGetFloat(event, "cpu_stolen_ticks")
 
 		cpuTotal := userTicks + userNiceTicks + systemTicks + idleTicks + waitTicks + irqTicks + sirqTicks + stealTicks
-		event, _ = rexon.JSONSet(event, rexon.Round((userTicks+userNiceTicks)/cpuTotal*100, 2), "avg_cpu_user")
-		event, _ = rexon.JSONSet(event, rexon.Round((systemTicks+irqTicks+sirqTicks)/cpuTotal*100, 2), "avg_cpu_system")
-		event, _ = rexon.JSONSet(event, rexon.Round((waitTicks)/cpuTotal*100, 2), "avg_cpu_iowait")
-		event, _ = rexon.JSONSet(event, rexon.Round((stealTicks)/cpuTotal*100, 2), "avg_cpu_stealwait")
-		event, _ = rexon.JSONSet(event, rexon.Round((idleTicks)/cpuTotal*100, 2), "avg_cpu_idle")
+		event, err = rexon.JSONSet(event, rexon.Round((userTicks+userNiceTicks)/cpuTotal*100, 2), "avg_cpu_user")
+		event, err = rexon.JSONSet(event, rexon.Round((systemTicks+irqTicks+sirqTicks)/cpuTotal*100, 2), "avg_cpu_system")
+		event, err = rexon.JSONSet(event, rexon.Round((waitTicks)/cpuTotal*100, 2), "avg_cpu_iowait")
+		event, err = rexon.JSONSet(event, rexon.Round((stealTicks)/cpuTotal*100, 2), "avg_cpu_stealwait")
+
+		cpuIdle := rexon.Round((idleTicks)/cpuTotal*100, 2)
+		event, err = rexon.JSONSet(event, cpuIdle, "avg_cpu_idle")
+		event, err = rexon.JSONSet(event, rexon.Round(100-cpuIdle, 2), "avg_cpu_utilization")
 
 		event = rexon.JSONDelete(event, "cpu_user_ticks")
 		event = rexon.JSONDelete(event, "cpu_usernice_ticks")
@@ -103,7 +105,7 @@ func NewVMStat() *tact.Collector {
 		event = rexon.JSONDelete(event, "cpu_softirq_ticks")
 		event = rexon.JSONDelete(event, "cpu_stolen_ticks")
 
-		return event, nil
+		return event, err
 	}
 
 	return vmstat

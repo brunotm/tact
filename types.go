@@ -19,7 +19,7 @@ type Node struct {
 }
 
 // GetDataFn collect function type
-type GetDataFn func(session *Session) <-chan []byte
+type GetDataFn func(session *Session) (events <-chan []byte)
 
 // PostEventOpsFn to post process events
-type PostEventOpsFn func([]byte) ([]byte, error)
+type PostEventOpsFn func([]byte) (out []byte, err error)

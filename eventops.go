@@ -36,7 +36,7 @@ type EventOps struct {
 	Delta        *DeltaOps
 }
 
-func (eo *EventOps) process(sess *Session, event []byte) []byte {
+func (eo *EventOps) process(sess *Session, event []byte) (out []byte) {
 	var err error
 	// Perform any specified field ops
 	if eo.FieldTypes != nil {
@@ -63,14 +63,13 @@ func (eo *EventOps) process(sess *Session, event []byte) []byte {
 }
 
 // eventDelta perform delta and rate calculation
-func (eo *EventOps) eventDelta(sess *Session, event []byte) ([]byte, error) {
+func (eo *EventOps) eventDelta(sess *Session, event []byte) (out []byte, err error) {
 
 	// Get any specified event unique attribute key, empty string otherwise
 	keyVal, _ := rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)
 
 	// Set the timestamp on the current event for caching
-	event, err := rexon.JSONSet(event, sess.timeCurrent, KeyTimeStamp)
-	if err != nil {
+	if event, err = rexon.JSONSet(event, sess.timeCurrent, KeyTimeStamp); err != nil {
 		return nil, err
 	}
 
@@ -88,8 +87,7 @@ func (eo *EventOps) eventDelta(sess *Session, event []byte) ([]byte, error) {
 	}
 
 	// Store the current event
-	err = sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
-	if err != nil {
+	if err = sess.txn.SetWithTTL(key, event, eo.Delta.TTL); err != nil {
 		return nil, err
 	}
 

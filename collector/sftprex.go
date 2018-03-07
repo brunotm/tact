@@ -7,14 +7,14 @@ import (
 )
 
 // SFTPRex collector base
-func SFTPRex(session *tact.Session, fileName string, rex rexon.Parser) <-chan []byte {
-	outChan := make(chan []byte)
-	go sftpRex(session, fileName, rex, outChan)
-	return outChan
+func SFTPRex(session *tact.Session, fileName string, rex rexon.Parser) (events <-chan []byte) {
+	outCh := make(chan []byte)
+	go sftpRex(session, fileName, rex, outCh)
+	return outCh
 }
 
-func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outChan chan<- []byte) {
-	defer close(outChan)
+func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outCh chan<- []byte) {
+	defer close(outCh)
 
 	// Get the file path for this collector type from the node configuration
 	filePath, ok := session.Node().LogFiles[fileName]
@@ -97,7 +97,7 @@ func sftpRex(session *tact.Session, fileName string, rex rexon.Parser, outChan c
 			continue
 		}
 
-		if !tact.WrapCtxSend(session.Context(), outChan, result.Data) {
+		if !tact.WrapCtxSend(session.Context(), outCh, result.Data) {
 			session.LogErr("sshrex: timed out sending event to upstream processing")
 			return
 		}

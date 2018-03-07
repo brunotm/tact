@@ -10,7 +10,6 @@ const (
 	wlmStatCmd = "wlmstat"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(wlmStat)
 }
@@ -31,6 +30,6 @@ var wlmStatParser = &rexon.RexLine{
 }
 
 // WLMStat collector
-func wlmStatFn(session *tact.Session) <-chan []byte {
+func wlmStatFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, wlmStatCmd, wlmStatParser)
 }

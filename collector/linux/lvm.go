@@ -8,7 +8,6 @@ import (
 	"github.com/brunotm/tact/collector"
 )
 
-// init add this collector with the registry
 func init() {
 	tact.Registry.Add(lsblk)
 	tact.Registry.Add(pvs)
@@ -35,10 +34,10 @@ var lsblkParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString, "size_bytes": rexon.TypeNumber},
 }
 
-func lsblkFn(session *tact.Session) <-chan []byte {
-	outChan := make(chan []byte)
+func lsblkFn(session *tact.Session) (events <-chan []byte) {
+	outCh := make(chan []byte)
 	go func() {
-		defer close(outChan)
+		defer close(outCh)
 		for blk := range collector.SSHRex(session, "lsblk -lb", lsblkParser) {
 			sz, err := rexon.JSONGetFloat(blk, "size_bytes")
 			if err == nil {
@@ -46,14 +45,14 @@ func lsblkFn(session *tact.Session) <-chan []byte {
 				blk = rexon.JSONDelete(blk, "size_bytes")
 			}
 
-			if !tact.WrapCtxSend(session.Context(), outChan, blk) {
+			if !tact.WrapCtxSend(session.Context(), outCh, blk) {
 				session.LogErr("timeout sending event upstream")
 				return
 			}
 
 		}
 	}()
-	return outChan
+	return outCh
 }
 
 var pvs = &tact.Collector{
@@ -76,7 +75,7 @@ var pvsParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func pvsFn(session *tact.Session) <-chan []byte {
+func pvsFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, "pvs", pvsParser)
 }
 
@@ -101,11 +100,11 @@ var asmDevicesParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func asmDevicesFn(session *tact.Session) <-chan []byte {
+func asmDevicesFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, "ls -l /dev/oracleasm/disks", asmDevicesParser)
 }
 
-func asmDevicesPostOpsFn(event []byte) ([]byte, error) {
+func asmDevicesPostOpsFn(event []byte) (out []byte, err error) {
 	major, _ := rexon.JSONGetString(event, "major")
 	minor, _ := rexon.JSONGetString(event, "minor")
 	event = rexon.JSONDelete(event, "major")

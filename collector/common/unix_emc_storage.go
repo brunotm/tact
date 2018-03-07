@@ -15,16 +15,16 @@ func NewUnixEMCStorageFn(inqPath, rex string) tact.GetDataFn {
 		Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 	}
 
-	return func(session *tact.Session) <-chan []byte {
-		outChan := make(chan []byte)
+	return func(session *tact.Session) (events <-chan []byte) {
+		outCh := make(chan []byte)
 		go func() {
-			defer close(outChan)
+			defer close(outCh)
 			for _, ct := range []string{" -sym_wwn", " -clar_wwn"} {
 				for event := range collector.SSHRex(session, inqPath+ct, storageParser) {
-					tact.WrapCtxSend(session.Context(), outChan, event)
+					tact.WrapCtxSend(session.Context(), outCh, event)
 				}
 			}
 		}()
-		return outChan
+		return outCh
 	}
 }

@@ -11,7 +11,6 @@ const (
 	memoryUserCmd = "svmon -U -O unit=MB"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(memory)
 	tact.Registry.Add(memoryUser)
@@ -52,7 +51,7 @@ var memoryParser = &rexon.RexSet{
 }
 
 // System memory collector
-func memoryFn(session *tact.Session) <-chan []byte {
+func memoryFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, memoryCmd, memoryParser)
 }
 
@@ -73,6 +72,6 @@ var memoryUserParser = &rexon.RexLine{
 }
 
 // MemoryUser collector
-func memoryUserFn(session *tact.Session) <-chan []byte {
+func memoryUserFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, memoryUserCmd, memoryUserParser)
 }

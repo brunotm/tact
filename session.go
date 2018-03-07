@@ -171,7 +171,7 @@ func (s *Session) loadLastTime() {
 }
 
 // EnrichEvent enriches and outgoing event
-func (s *Session) enrichEvent(event []byte) []byte {
+func (s *Session) enrichEvent(event []byte) (out []byte) {
 	if !rexon.JSONExists(event, KeyTimeStamp) {
 		event, _ = rexon.JSONSet(event, s.timeCurrent, KeyTimeStamp)
 	}
@@ -209,6 +209,6 @@ func (s *Session) getLogFields() log.Fields {
 }
 
 // logMessage
-func logMessage(message string, args []interface{}) string {
+func logMessage(message string, args []interface{}) (msg string) {
 	return fmt.Sprintf(message, args...)
 }

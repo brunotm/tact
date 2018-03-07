@@ -30,6 +30,6 @@ var datafiles = &tact.Collector{
 	},
 }
 
-func datafilesFn(session *tact.Session) <-chan []byte {
+func datafilesFn(session *tact.Session) (events <-chan []byte) {
 	return singleQuery(session, datafilesQuery)
 }

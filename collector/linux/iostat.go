@@ -1,8 +1,5 @@
 package linux
 
-// Change to use /proc/diskstats
-// https://www.kernel.org/doc/Documentation/iostats.txt
-
 import (
 	"time"
 
@@ -11,7 +8,6 @@ import (
 	"github.com/brunotm/tact/collector"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(ioStat)
 }
@@ -69,11 +65,11 @@ var ioStatParser = &rexon.RexLine{
 		"in_flight_ios", "avg_svctm_ms", "avg_wait_ms"},
 }
 
-func ioStatFn(session *tact.Session) <-chan []byte {
+func ioStatFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, "cat /proc/diskstats", ioStatParser)
 }
 
-func ioStatPostOps(event []byte) ([]byte, error) {
+func ioStatPostOps(event []byte) (out []byte, err error) {
 
 	// calculate avg_io_rate
 	reads, err := rexon.JSONGetFloat(event, "avg_reads")
@@ -89,9 +85,9 @@ func ioStatPostOps(event []byte) ([]byte, error) {
 
 	// avg_read/write_kb
 	readSect, err := rexon.JSONGetFloat(event, "avg_read_kb")
-	event, err = rexon.JSONSet(event, (readSect*512)/1024, "avg_read_kb")
+	event, err = rexon.JSONSet(event, (readSect*512)/1000, "avg_read_kb")
 	writeSect, err := rexon.JSONGetFloat(event, "avg_write_kb")
-	event, err = rexon.JSONSet(event, (writeSect*512)/1024, "avg_write_kb")
+	event, err = rexon.JSONSet(event, (writeSect*512)/1000, "avg_write_kb")
 
 	// avg_wait_ms and avg_svctm_total_ms
 	svctm, err := rexon.JSONGetFloat(event, "avg_svctm_ms")

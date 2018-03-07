@@ -9,7 +9,6 @@ const (
 	sessionsQuery = `SELECT COUNT(*) as active_sessions FROM v$session WHERE status = 'INACTIVE'`
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(sessions)
 }
@@ -26,6 +25,6 @@ var sessions = &tact.Collector{
 }
 
 // vmstat collector
-func sessionsFn(session *tact.Session) <-chan []byte {
+func sessionsFn(session *tact.Session) (events <-chan []byte) {
 	return singleQuery(session, sessionsQuery)
 }

@@ -32,6 +32,6 @@ var waitClass = &tact.Collector{
 }
 
 // vmstat collector
-func waitClassFn(session *tact.Session) <-chan []byte {
+func waitClassFn(session *tact.Session) (events <-chan []byte) {
 	return singleQuery(session, waitClassQuery)
 }

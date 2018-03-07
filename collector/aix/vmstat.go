@@ -10,7 +10,6 @@ const (
 	vmStatCmd = "/usr/bin/vmstat -IWw 60 1"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(vmStat)
 }
@@ -32,6 +31,6 @@ var vmStatParser = &rexon.RexLine{
 }
 
 // VMStat collector
-func vmStatFn(session *tact.Session) <-chan []byte {
+func vmStatFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, vmStatCmd, vmStatParser)
 }

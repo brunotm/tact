@@ -16,14 +16,14 @@ const (
 )
 
 // Query collector base
-func singleQuery(session *tact.Session, query string) <-chan []byte {
-	outChan := make(chan []byte)
-	go oracleQuery(session, query, outChan)
-	return outChan
+func singleQuery(session *tact.Session, query string) (events <-chan []byte) {
+	outCh := make(chan []byte)
+	go oracleQuery(session, query, outCh)
+	return outCh
 }
 
-func oracleQuery(session *tact.Session, query string, outChan chan<- []byte) {
-	defer close(outChan)
+func oracleQuery(session *tact.Session, query string, outCh chan<- []byte) {
+	defer close(outCh)
 	db, err := sql.Open(oracleDriver,
 		fmt.Sprintf("%s/%s@%s:%s/%s",
 			session.Node().DBUser,
@@ -66,6 +66,6 @@ func oracleQuery(session *tact.Session, query string, outChan chan<- []byte) {
 		for cn := range colnames {
 			event, _ = rexon.JSONSet(event, values[cn], strings.ToLower(colnames[cn]))
 		}
-		tact.WrapCtxSend(session.Context(), outChan, event)
+		tact.WrapCtxSend(session.Context(), outCh, event)
 	}
 }

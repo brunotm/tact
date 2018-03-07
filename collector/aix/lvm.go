@@ -10,7 +10,6 @@ const (
 	lspvCmd = "lspv"
 )
 
-// init register this collector with the dispatcher
 func init() {
 	tact.Registry.Add(lspv)
 }
@@ -26,6 +25,6 @@ var lspvParser = &rexon.RexLine{
 	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
 }
 
-func lspvFn(session *tact.Session) <-chan []byte {
+func lspvFn(session *tact.Session) (events <-chan []byte) {
 	return collector.SSHRex(session, lspvCmd, lspvParser)
 }
