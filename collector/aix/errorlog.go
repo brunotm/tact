@@ -3,11 +3,11 @@ package aix
 import (
 	"time"
 
-	"fmt"
+	"github.com/brunotm/tact/collector/keys"
 
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/ssh"
 )
 
 const (
@@ -22,33 +22,35 @@ func init() {
 var errorLog = &tact.Collector{
 	Name:    "/aix/log/error",
 	GetData: errorLogFn,
-	PostOps: errorLogPostOps,
 }
 
-var errorLogParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^(\w+)\s+(\d+)\s+(\w)\s+(\w)\s+(\w+)\s+(.*)`),
-	Fields: []string{"identifier", tact.KeyTimeStamp, "type", "class", "resource", "description"},
-	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
-}
+// Example raw data
+// IDENTIFIER TIMESTAMP  T C RESOURCE_NAME  DESCRIPTION
+// E87EF1BE   0604150018 P O dumpcheck      The largest dump device is too small.
+// A924A5FC   0604130118 P S SYSPROC        SOFTWARE PROGRAM ABNORMALLY TERMINATED
+// A924A5FC   0603230218 P S SYSPROC        SOFTWARE PROGRAM ABNORMALLY TERMINATED
+// A924A5FC   0603192518 P S SYSPROC        SOFTWARE PROGRAM ABNORMALLY TERMINATED
+// A924A5FC   0603150118 P S SYSPROC        SOFTWARE PROGRAM ABNORMALLY TERMINATED
 
-func errorLogFn(session *tact.Session) (events <-chan []byte) {
+var errorLogParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue("identifier", rexon.String),
+		rexon.MustNewValue(keys.Time, rexon.Time, rexon.FromFormat(timeLayout)),
+		rexon.MustNewValue("type", rexon.String),
+		rexon.MustNewValue("class", rexon.String),
+		rexon.MustNewValue("resource", rexon.String),
+		rexon.MustNewValue("description", rexon.String),
+	},
+	rexon.LineRegex(`(\w+)\s+(\d+)\s+(\w)\s+(\w)\s+(\w+)\s+(.*)`),
+)
 
-	// If this is our first run set back the clock to gather events
-	timeLast := session.LastTime()
-	if timeLast == 0 {
-		timeLast = time.Now().AddDate(0, 0, -1).Unix()
+func errorLogFn(ctx *tact.Context) (events <-chan []byte) {
+
+	// If this is our first run set back the clock 1 day to gather events
+	timeLast := ctx.LastRunTime()
+	if timeLast.IsZero() {
+		timeLast = time.Now().AddDate(0, 0, -1)
 	}
 
-	return collector.SSHRex(session, errptCmd+time.Unix(timeLast, 0).Format(timeLayout), errorLogParser)
-}
-
-func errorLogPostOps(event []byte) (out []byte, err error) {
-	ts, _ := rexon.JSONGetUnsafeString(event, tact.KeyTimeStamp)
-	timestamp, err := time.Parse(timeLayout, ts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse timestamp: %s, error: %s", ts, err)
-	}
-
-	event, err = rexon.JSONSet(event, timestamp.Unix(), tact.KeyTimeStamp)
-	return event, err
+	return ssh.Regex(ctx, errptCmd+timeLast.Format(timeLayout), errorLogParser)
 }

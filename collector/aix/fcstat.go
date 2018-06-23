@@ -2,11 +2,11 @@ package aix
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/brunotm/rexon"
-	"github.com/brunotm/sshmgr"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/ssh"
 )
 
 const (
@@ -23,14 +23,8 @@ var fcStat = &tact.Collector{
 	GetData: fcStatFn,
 	EventOps: &tact.EventOps{
 		Round: 2,
-		FieldTypes: map[string]rexon.ValueType{
-			rexon.KeyTypeAll: rexon.TypeNumber,
-			"device":         rexon.TypeString,
-			"serial_number":  rexon.TypeString,
-			"wwpn":           rexon.TypeString,
-			"fcid":           rexon.TypeString,
-		},
 		Delta: &tact.DeltaOps{
+			TTL:      time.Hour * 3,
 			KeyField: "device",
 			Rate:     true,
 			Blacklist: tact.BuildBlackList(
@@ -59,60 +53,62 @@ var fcStat = &tact.Collector{
 	},
 }
 
-var fcStatParser = &rexon.RexSet{
-	Set: rexon.RexSetMustCompile(map[string]string{
-		rexon.KeyStartTag:         `^FIBRE\s+CHANNEL\s+STATISTICS\s+REPORT:\s+(\w+)`,
-		rexon.KeySkipTag:          `^IP\s+over\s+FC\s+Traffic\s+Statistics`,
-		rexon.KeyContinueTag:      `^FC\s+SCSI\s+Traffic\s+Statistics`,
-		"device":                  `^FIBRE\s+CHANNEL\s+STATISTICS\s+REPORT:\s+(\w+)`,
-		"serial_number":           `^Serial\s+Number:\s+(\w+)`,
-		"wwpn":                    `World\s+Wide\s+Port\s+Name:\s+0x(\w+)`,
-		"speed_sup_gbit":          `^Port\s+Speed\s+\(supported\):\s+(\w+)\s+GBIT`,
-		"speed_run_gbit":          `^Port\s+Speed\s+\(running\):\s+(\w+)\s+GBIT`,
-		"fcid":                    `^Port\s+FC\s+ID:\s+(\w+)`,
-		"last_reset_sec":          `^Seconds\s+Since\s+Last\s+Reset:\s+(\d+)`,
-		"avg_tx_frames":           `^Frames:\s+(\d+)\s+\d+`,
-		"avg_rx_frames":           `^Frames:\s+\d+\s+(\d+)`,
-		"avg_tx_words":            `^Words:\s+(\d+)\s+\d+`,
-		"avg_rx_words":            `^Words:\s+\d+\s+(\d+)`,
-		"num_lip_count":           `^LIP\s+Count:\s+(\d+)`,
-		"num_nos_count":           `^NOS\s+Count:\s+(\d+)`,
-		"num_frames_error":        `^Error\s+Frames:\s+(\d+)`,
-		"num_frames_dumped":       `^Dumped\s+Frames:\s+(\d+)`,
-		"num_link_fail":           `^Link\s+Failure\s+Count:\s+(\d+)`,
-		"num_sync_loss":           `^Loss\s+of\s+Sync\s+Count:\s+(\d+)`,
-		"num_signal_loss":         `^Loss\s+of\s+Signal:\s+(\d+)`,
-		"num_prim_seq_error":      `^Primitive\s+Seq\s+Protocol\s+Error\s+Count:\s+(\d+)`,
-		"num_invalid_tx_word":     `^Invalid\s+Tx\s+Word\s+Count:\s+(\d+)`,
-		"num_invalid_crc":         `^Invalid\s+CRC\s+Count:\s+(\d+)`,
-		"num_fc_no_dma_res":       `^No\s+DMA\s+Resource\s+Count:\s+(\d+)`,
-		"num_fc_no_adapt_element": `^No\s+Adapter\s+Elements\s+Count:\s+(\d+)`,
-		"num_fc_no_cmd_res":       `^No\s+Command\s+Resource\s+Count:\s+(\d+)`,
-		"avg_fc_read_req":         `^Input\s+Requests:\s+(\d+)`,
-		"avg_fc_write_req":        `^Output\s+Requests:\s+(\d+)`,
-		"num_fc_cntrl_req":        `^Control\s+Requests:\s+(\d+)`,
-		"avg_fc_bytes_rx":         `^Input\s+Bytes:\s+(\d+)`,
-		"avg_fc_bytes_tx":         `^Output\s+Bytes:\s+(\d+)`,
-	}),
-}
+var fcStatParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue("device", rexon.String, rexon.ValueRegex(`FIBRE\s+CHANNEL\s+STATISTICS\s+REPORT:\s+(\w+)`)),
+		rexon.MustNewValue("serial_number", rexon.String, rexon.ValueRegex(`^Serial\s+Number:\s+(\w+)`)),
+		rexon.MustNewValue("wwpn", rexon.String, rexon.ValueRegex(`World\s+Wide\s+Port\s+Name:\s+0x(\w+)`)),
+		rexon.MustNewValue("speed_sup_gbit", rexon.Number, rexon.ValueRegex(`Port\s+Speed\s+\(supported\):\s+(\w+)\s+GBIT`)),
+		rexon.MustNewValue("speed_run_gbit", rexon.Number, rexon.ValueRegex(`Port\s+Speed\s+\(running\):\s+(\w+)\s+GBIT`)),
+		rexon.MustNewValue("fcid", rexon.String, rexon.ValueRegex(`Port\s+FC\s+ID:\s+(\w+)`)),
+		rexon.MustNewValue("last_reset_seconds", rexon.Number, rexon.ValueRegex(`Seconds\s+Since\s+Last\s+Reset:\s+(\d+)`)),
+		rexon.MustNewValue("avg_tx_frames", rexon.Number, rexon.ValueRegex(`Frames:\s+(\d+)\s+\d+`)),
+		rexon.MustNewValue("avg_rx_frames", rexon.Number, rexon.ValueRegex(`Frames:\s+\d+\s+(\d+)`)),
+		rexon.MustNewValue("avg_tx_words", rexon.Number, rexon.ValueRegex(`Words:\s+(\d+)\s+\d+`)),
+		rexon.MustNewValue("avg_rx_words", rexon.Number, rexon.ValueRegex(`Words:\s+\d+\s+(\d+)`)),
+		rexon.MustNewValue("num_lip_count", rexon.Number, rexon.ValueRegex(`LIP\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_nos_count", rexon.Number, rexon.ValueRegex(`NOS\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_frames_error", rexon.Number, rexon.ValueRegex(`Error\s+Frames:\s+(\d+)`)),
+		rexon.MustNewValue("num_frames_dumped", rexon.Number, rexon.ValueRegex(`Dumped\s+Frames:\s+(\d+)`)),
+		rexon.MustNewValue("num_link_fail", rexon.Number, rexon.ValueRegex(`Link\s+Failure\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_sync_loss", rexon.Number, rexon.ValueRegex(`Loss\s+of\s+Sync\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_signal_loss", rexon.Number, rexon.ValueRegex(`Loss\s+of\s+Signal:\s+(\d+)`)),
+		rexon.MustNewValue("num_prim_seq_error", rexon.Number, rexon.ValueRegex(`Primitive\s+Seq\s+Protocol\s+Error\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_invalid_tx_word", rexon.Number, rexon.ValueRegex(`Invalid\s+Tx\s+Word\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_invalid_crc", rexon.Number, rexon.ValueRegex(`Invalid\s+CRC\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_fc_no_dma_res", rexon.Number, rexon.ValueRegex(`No\s+DMA\s+Resource\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_fc_no_adapt_element", rexon.Number, rexon.ValueRegex(`^No\s+Adapter\s+Elements\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("num_fc_no_cmd_res", rexon.Number, rexon.ValueRegex(`No\s+Command\s+Resource\s+Count:\s+(\d+)`)),
+		rexon.MustNewValue("avg_fc_read_req", rexon.Number, rexon.ValueRegex(`Input\s+Requests:\s+(\d+)`)),
+		rexon.MustNewValue("avg_fc_write_req", rexon.Number, rexon.ValueRegex(`Output\s+Requests:\s+(\d+)`)),
+		rexon.MustNewValue("num_fc_cntrl_req", rexon.Number, rexon.ValueRegex(`Control\s+Requests:\s+(\d+)`)),
+		rexon.MustNewValue("avg_fc_megabytes_rx", rexon.DigitalUnit, rexon.ValueRegex(`Input\s+Bytes:\s+(\d+)`),
+			rexon.ToFormat("mb")),
+		rexon.MustNewValue("avg_fc_megabytes_tx", rexon.DigitalUnit, rexon.ValueRegex(`Output\s+Bytes:\s+(\d+)`),
+			rexon.ToFormat("mb")),
+	},
+	rexon.StartTag(`FIBRE\s+CHANNEL\s+STATISTICS\s+REPORT:\s+(\w+)`),
+	rexon.SkipTag(`IP\s+over\s+FC\s+Traffic\s+Statistics`),
+	rexon.ContinueTag(`FC\s+SCSI\s+Traffic\s+Statistics`),
+)
 
 // FCStat collector
-func fcStatFn(session *tact.Session) (events <-chan []byte) {
+func fcStatFn(ctx *tact.Context) (events <-chan []byte) {
 	outCh := make(chan []byte)
 
 	go func() {
 		defer close(outCh)
 
-		sshSession, err := sshmgr.Manager.GetSSHSession(collector.NewSSHNodeConfig(session.Node()))
+		client, err := ssh.Client(ctx)
 		if err != nil {
-			session.LogErr("error getting ssh session: %s", err)
+			ctx.LogError("getting ssh client error: %s", fcListCmd, err)
 			return
 		}
-		defer sshSession.Close()
+		defer client.Close()
 
-		fcs, err := sshSession.CombinedOutput(fcListCmd)
+		fcs, err := client.CombinedOutput(fcListCmd, nil)
 		if err != nil {
-			session.LogErr("executing ssh comand: %s, error: %s", fcListCmd, err.Error())
+			ctx.LogError("executing ssh comand: %s, error: %s", fcListCmd, err)
 			return
 		}
 
@@ -121,25 +117,19 @@ func fcStatFn(session *tact.Session) (events <-chan []byte) {
 				continue
 			}
 
-			sess, err := sshmgr.Manager.GetSSHSession(collector.NewSSHNodeConfig(session.Node()))
+			fcstat, err := client.CombinedOutput(fcStatCmd+string(fc), nil)
 			if err != nil {
-				session.LogErr("error getting ssh session: %s", err)
-				return
-			}
-			defer sess.Close()
-
-			fcstat, err := sess.CombinedOutput(fcStatCmd + string(fc))
-			if err != nil {
-				session.LogErr("executing ssh comand: %s, error: %s", fcStatCmd+string(fc), err)
+				ctx.LogError("executing ssh comand: %s, error: %s", fcStatCmd+string(fc), err)
 				continue
 			}
 
-			for result := range fcStatParser.ParseBytes(session.Context(), fcstat) {
+			for result := range fcStatParser.ParseBytes(ctx.Context(), fcstat) {
 				for e := range result.Errors {
-					session.LogErr(result.Errors[e].Error())
+					ctx.LogError(result.Errors[e].Error())
 				}
-				if !tact.WrapCtxSend(session.Context(), outCh, result.Data) {
-					session.LogErr("timeout sending event upstream")
+
+				if !tact.WrapCtxSend(ctx.Context(), outCh, result.Data) {
+					ctx.LogError("timeout sending event upstream")
 					return
 				}
 			}

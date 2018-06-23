@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	gcDiscardRatio = 0.5
+	gcDiscardRatio = 0.7
 )
 
 var (
@@ -35,6 +35,7 @@ func Open(path string, autoGC bool) (store *Store, err error) {
 	opts := badger.DefaultOptions
 	opts.Dir = path
 	opts.ValueDir = path
+	opts.NumVersionsToKeep = 1
 	opts.MaxTableSize = 8 << 20      // def 64 << 20
 	opts.NumMemtables = 3            // def 5
 	opts.NumLevelZeroTables = 3      // def 5
@@ -73,10 +74,6 @@ func (s *Store) Remove() (err error) {
 
 // RunGC garbage collect the undelying DB
 func (s *Store) RunGC() (err error) {
-	if err = s.db.PurgeOlderVersions(); err != nil {
-		return err
-	}
-
 	if err = s.db.RunValueLogGC(gcDiscardRatio); err == badger.ErrNoRewrite {
 		return nil
 	}

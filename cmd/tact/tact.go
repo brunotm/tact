@@ -7,16 +7,17 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/brunotm/tact"
 	_ "github.com/brunotm/tact/collector/aix"
 	_ "github.com/brunotm/tact/collector/linux"
 	_ "github.com/brunotm/tact/collector/oracle"
+	"github.com/brunotm/tact/log"
 	"github.com/brunotm/tact/scheduler"
 )
 
@@ -33,26 +34,32 @@ var (
 	dbPassword = flag.String("dbpass", "", "log files, format name:path,name:path")
 	dbPort     = flag.String("dbport", "", "log files, format name:path,name:path")
 	collector  = flag.String("c", "", "Collector or group to run")
-	logLevel   = flag.String("log", "INFO", "Log level")
+	logLevel   = flag.String("log", "info", "Log level")
 	dataPath   = flag.String("datapath", "./statedb", "Path for state data")
 )
 
 func main() {
+	// grmon.Start()
 	flag.Parse()
 	var err error
 
+	switch strings.ToLower(*logLevel) {
+	case "debug":
+		log.SetDebug()
+	case "info":
+		log.SetInfo()
+	case "warn":
+		log.SetWarn()
+	case "error":
+		log.SetError()
+	default:
+		log.Error("invalid log level")
+		os.Exit(1)
+	}
+
 	tact.Init(*dataPath)
 
-	// log.SetFormatter(&log.JSONFormatter{})
-	lvl, err := log.ParseLevel(*logLevel)
-	if err != nil {
-		log.Println("Invalid log level")
-		return
-	}
-	log.SetLevel(lvl)
-
 	node := &tact.Node{}
-
 	node.HostName = *hostName
 	if *netAddr == "" {
 		node.NetAddr = *hostName
@@ -126,17 +133,35 @@ func main() {
 		sched.Stop()
 
 	} else {
+		var wg sync.WaitGroup
+
 		if collGroup != nil {
 			for _, c := range collGroup {
-				sess := tact.NewSession(context.Background(), c.Name, node, tact.Store, 290*time.Second)
-				c.Start(sess, wchan)
+				sess, err := tact.NewContext(context.Background(), c.Name, node, tact.Store, 290*time.Second)
+				if err != nil {
+					panic(err)
+				}
+				wg.Add(1)
+				go func(c *tact.Collector) {
+					c.Start(sess, wchan)
+					wg.Done()
+				}(c)
 			}
 		}
 
 		if coll != nil {
-			sess := tact.NewSession(context.Background(), *collector, node, tact.Store, 290*time.Second)
-			coll.Start(sess, wchan)
+			sess, err := tact.NewContext(context.Background(), *collector, node, tact.Store, 290*time.Second)
+			if err != nil {
+				panic(err)
+			}
+			wg.Add(1)
+			func() {
+				coll.Start(sess, wchan)
+				wg.Done()
+			}()
 		}
+
+		wg.Wait()
 	}
 
 	log.Info("Shutting down")

@@ -7,7 +7,7 @@ import (
 
 const (
 	inqPath = "/usr/lpp/EMC/Symmetrix/bin/inq.aix64_51"
-	inqRex  = `^/dev/r(hdisk\d+)\s+(\w+)\s+(\w+)\s+(\w+)`
+	inqRex  = `/dev/r(hdisk\d+)\s+(\w+)\s+(\w+)\s+(\w+)`
 )
 
 func init() {

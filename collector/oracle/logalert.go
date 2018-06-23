@@ -1,12 +1,10 @@
 package oracle
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/sftp"
+	"github.com/brunotm/tact/collector/keys"
 )
 
 const (
@@ -22,40 +20,25 @@ func init() {
 var logAlert = &tact.Collector{
 	Name:    "/oracle/log/alert",
 	GetData: logAlertFn,
-	PostOps: logAlertPostOps,
 }
 
-var logAlertParser = &rexon.RexSet{
-	Round: 2,
-	Types: map[string]rexon.ValueType{
-		rexon.KeyTypeAll: rexon.TypeString,
-		"pid":            rexon.TypeNumber},
-	Set: rexon.RexSetMustCompile(map[string]string{
-		rexon.KeyStartTag: `^<msg`,
-		tact.KeyTimeStamp: `time='(.*?)'`,
-		"org_id":          `org_id='(.*?)'`,
-		"comp_id":         `comp_id='(.*?)'`,
-		"client_id":       `client_id='(.*?)'`,
-		"type":            `type='(.*?)'`,
-		"level":           `level='(.*?)'`,
-		"host_id":         `host_id='(.*?)'`,
-		"host_addr":       `host_addr='(.*?)'`,
-		"module":          `module='(.*?)'`,
-		"pid":             `pid='(.*?)'`,
-		"message":         `<txt>\s*(.*)`,
-	}),
-}
+var logAlertParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Time, rexon.Time, rexon.FromFormat(timeLayout), rexon.ValueRegex(`time='(.*?)'`)),
+		rexon.MustNewValue("org_id", rexon.String, rexon.ValueRegex(`org_id='(.*?)'`)),
+		rexon.MustNewValue("comp_id", rexon.String, rexon.ValueRegex(`comp_id='(.*?)'`)),
+		rexon.MustNewValue("client_id", rexon.String, rexon.ValueRegex(`client_id='(.*?)'`)),
+		rexon.MustNewValue("type", rexon.String, rexon.ValueRegex(`type='(.*?)'`)),
+		rexon.MustNewValue("level", rexon.String, rexon.ValueRegex(`level='(.*?)'`)),
+		rexon.MustNewValue("host_id", rexon.String, rexon.ValueRegex(`host_id='(.*?)'`)),
+		rexon.MustNewValue("host_addr", rexon.String, rexon.ValueRegex(`host_addr='(.*?)'`)),
+		rexon.MustNewValue("module", rexon.String, rexon.ValueRegex(`module='(.*?)'`)),
+		rexon.MustNewValue("pid", rexon.String, rexon.ValueRegex(`pid='(.*?)'`)),
+		rexon.MustNewValue("message", rexon.String, rexon.ValueRegex(`<txt>\s*(.*)`)),
+	},
+	rexon.StartTag(`^<msg`),
+)
 
-func logAlertFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SFTPRex(session, fileName, logAlertParser)
-}
-
-func logAlertPostOps(event []byte) ([]byte, error) {
-	ts, _ := rexon.JSONGetUnsafeString(event, tact.KeyTimeStamp)
-	timestamp, err := time.Parse(timeLayout, ts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse timestamp: %s, error: %s", ts, err.Error())
-	}
-	event, err = rexon.JSONSet(event, timestamp.Unix(), tact.KeyTimeStamp)
-	return event, err
+func logAlertFn(ctx *tact.Context) (events <-chan []byte) {
+	return sftp.Regex(ctx, fileName, logAlertParser)
 }

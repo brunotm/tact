@@ -1,0 +1,103 @@
+package keys
+
+const (
+	// General
+	Time        = "time"
+	LastRunTime = "last_run_time"
+	Delta       = "delta"
+	Metric      = "_metric"
+	Host        = "host"
+	Node        = "node"
+	Collector   = "collector"
+
+	// System general
+	Maj         = "maj"
+	Min         = "min"
+	MajMin      = "maj_min"
+	Device      = "device"
+	DeviceDM    = "dm_device"
+	DeviceWWN   = "device_wwn"
+	SizeMB      = "size_megabytes"
+	ArrayID     = "array_id"
+	ArrayDevice = "array_device"
+	MountPoint  = "mount_point"
+
+	// LVM
+	VGName = "vg_name"
+	VGType = "vg_type"
+	VGMode = "vg_mode"
+
+	// Memory
+	MemUsedPct    = "mem_used_pct"
+	MemTotalMB    = "mem_total_mb"
+	MemUsedMB     = "mem_used_mb"
+	MemActiveMB   = "mem_active_mb"
+	MemInactiveMB = "mem_inactive_mb"
+	MemFreeMB     = "mem_free_mb"
+	MemBufferMB   = "mem_buffer_mb"
+	MemCachedMB   = "mem_cache_mb"
+	SwapUsedPct   = "swap_used_pct"
+	SwapTotalMB   = "swap_total_mb"
+	SwapUsedMB    = "swap_used_mb"
+	SwapFreeMB    = "swap_free_mb"
+	SwapCacheMB   = "swap_cache_mb"
+
+	// Pages
+	PagesActiveAvg     = "pages_active_avg"
+	PagesFreeAvg       = "pages_free_avg"
+	PagesPagedInAvg    = "pages_paged_in_avg"
+	PagesPagedOutAvg   = "pages_paged_out_avg"
+	PagesReclaimedAvg  = "pages_reclaimed_avg"
+	PagesFreedAvg      = "pages_freed_avg"
+	PagesScannedAvg    = "pages_scanned_avg"
+	PagesCyclesAvg     = "pages_cycles_avg"
+	PagesSwappedInAvg  = "pages_swapped_in_avg"
+	PagesSwappedOutAvg = "pages_swapped_out_avg"
+
+	// CPU and OS
+	CPUUsedPctAvg             = "cpu_used_pct_avg"
+	CPUUserPctAvg             = "cpu_user_pct_avg"
+	CPUSysPctAvg              = "cpu_sys_pct_avg"
+	CPUWaitPctAvg             = "cpu_wait_pct_avg"
+	CPUIdlePctAvg             = "cpu_idle_pct_avg"
+	CPUStealWaitPctAvg        = "cpu_stealwait_pct_avg"
+	OSForksAvg                = "os_forks_avg"
+	OSSyscallsAvg             = "os_syscalls_avg"
+	OSInterruptsAvg           = "os_interrupts_avg"
+	OSThreadsRunnableAvg      = "os_threads_runnable_avg"
+	OSThreadsBlockedAvg       = "os_threads_blocked_avg"
+	OSContextSwitchesAvg      = "os_context_switches_avg"
+	CPUPhysicalConsumedAvg    = "cpu_physical_consumed_avg"
+	CPUEntitledCapacityPctAvg = "cpu_entitled_capacity_pct_avg"
+
+	// IO
+	IORateAvg           = "io_rate_avg"
+	IOReadRateAvg       = "io_rate_read_avg"
+	IOWriteRateAvg      = "io_rate_write_avg"
+	IORateMBAvg         = "io_rate_mb_avg"
+	IORateReadMBAvg     = "io_rate_read_mb_avg"
+	IORateWriteMBAvg    = "io_rate_read_mb_avg"
+	IOWaitMSAvg         = "io_wait_ms_avg"
+	IOWaitReadMSAvg     = "io_wait_read_ms_avg"
+	IOWaitWriteMSAvg    = "io_wait_write_ms_avg"
+	IOLatencyMSAvg      = "io_latency_ms_avg"
+	IOLatencyReadMSAvg  = "io_latency_read_ms_avg"
+	IOLatencyWriteMSAvg = "io_latency_write_ms_avg"
+	IOServiceMSAvg      = "io_service_ms_avg"
+	IOServiceReadMSAvg  = "io_service_read_ms_avg"
+	IOServiceWriteMSAvg = "io_service_write_ms_avg"
+
+	// Network
+	NetPacketsAvg   = "net_packets_avg"
+	NetPacketsRXAvg = "net_packets_rx_avg"
+	NetPacketsTXAvg = "net_packets_tx_avg"
+	NetMBAvg        = "net_mb_avg"
+	NetMBRXAvg      = "net_mb_rx_avg"
+	NetMBTXAvg      = "net_mb_tx_avg"
+	NetErrorsAvg    = "net_errors_avg"
+	NetErrorsRXAvg  = "net_errors_rx_avg"
+	NetErrorsTXAvg  = "net_errors_tx_avg"
+	NetDropsAvg     = "net_drops_avg"
+	NetDropsRXAvg   = "net_drops_rx_avg"
+	NetDropsTXAvg   = "net_drops_tx_avg"
+)

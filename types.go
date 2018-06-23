@@ -17,9 +17,3 @@ type Node struct {
 	DBPort      string            `json:"db_port,omitempty"`
 	LogFiles    map[string]string `json:"files,omitempty"`
 }
-
-// GetDataFn collect function type
-type GetDataFn func(session *Session) (events <-chan []byte)
-
-// PostEventOpsFn to post process events
-type PostEventOpsFn func([]byte) (out []byte, err error)

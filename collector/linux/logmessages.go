@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/brunotm/tact/collector/keys"
+
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/sftp"
+	"github.com/brunotm/tact/js"
 )
 
 const (
@@ -24,25 +27,25 @@ var logMessages = &tact.Collector{
 	PostOps: logMessagesPostOps,
 }
 
-var logMessagesParser = &rexon.RexLine{
-	Prep:   rexon.RexMustCompile(`[(),;!"']`),
-	Rex:    rexon.RexMustCompile(`^(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+\w+\s+(.*)\[(\d+)\]:\s+(.*)`),
-	Fields: []string{tact.KeyTimeStamp, "resource", "pid", "message"},
-	Types: map[string]rexon.ValueType{
-		rexon.KeyTypeAll: rexon.TypeString,
-		"pid":            rexon.TypeNumber},
-}
+var logMessagesParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Time, rexon.String),
+		rexon.MustNewValue("resource", rexon.String),
+		rexon.MustNewValue("pid", rexon.Number),
+		rexon.MustNewValue("message", rexon.String),
+	},
+)
 
-func logMessagesFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SFTPRex(session, fileName, logMessagesParser)
+func logMessagesFn(ctx *tact.Context) (events <-chan []byte) {
+	return sftp.Regex(ctx, fileName, logMessagesParser)
 }
 
 func logMessagesPostOps(event []byte) (out []byte, err error) {
-	ts, _ := rexon.JSONGetUnsafeString(event, tact.KeyTimeStamp)
+	ts, _ := js.GetUnsafeString(event, keys.Time)
 	timestamp, err := time.Parse(timeLayout, fmt.Sprintf("%s %d", ts, time.Now().Year()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse timestamp: %s, error: %s", ts, err.Error())
 	}
-	event, err = rexon.JSONSet(event, timestamp.Unix(), tact.KeyTimeStamp)
+	event, err = js.Set(event, timestamp, keys.Time)
 	return event, err
 }

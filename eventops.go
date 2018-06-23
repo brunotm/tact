@@ -1,14 +1,18 @@
 package tact
 
 import (
+	"math"
 	"time"
+
+	"github.com/brunotm/tact/collector/keys"
+	"github.com/brunotm/tact/js"
 
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact/storage"
 )
 
 var (
-	deltaPrefix = []byte(`delta`)
+	deltaPrefix = []byte(keys.Delta)
 )
 
 // Blacklist type
@@ -30,31 +34,44 @@ type DeltaOps struct {
 
 // EventOps type
 type EventOps struct {
-	Round        int                        // The precision for float fields
-	FieldTypes   map[string]rexon.ValueType // The Fields:Type for conversion
-	FieldRenames map[string]string          // The Fields:Name for renaming
+	Round        int               // The precision for float fields
+	FieldTypes   []*rexon.Value    // The Fields:Type for conversion
+	FieldRenames map[string]string // The Fields:Name for renaming
 	Delta        *DeltaOps
 }
 
-func (eo *EventOps) process(sess *Session, event []byte) (out []byte) {
+func (eo *EventOps) process(ctx *Context, event []byte) (out []byte) {
 	var err error
+
 	// Perform any specified field ops
 	if eo.FieldTypes != nil {
-		result := rexon.ParseJsonValues(event, eo.FieldTypes, eo.Round)
-		if result.Errors != nil {
-			for err := range result.Errors {
-				sess.LogErr(result.Errors[err].Error())
+		for _, vp := range eo.FieldTypes {
+			field := vp.Name()
+			raw, err := js.Get(event, field)
+			if err != nil {
+				ctx.LogError("type conversion error fetching %s from event: %s", field, err)
+				continue
 			}
-			return nil
+
+			value, _, err := vp.Parse(raw)
+			if err != nil {
+				ctx.LogError("%s type conversion error: %s", field, err)
+				continue
+			}
+
+			event, err = js.Set(event, value, field)
+			if err != nil {
+				ctx.LogError("%s type conversion error setting: %s", field, err)
+				continue
+			}
 		}
-		event = result.Data
 	}
 
 	// Perform any specified delta ops
 	if eo.Delta != nil {
-		event, err = eo.eventDelta(sess, event)
+		event, err = eo.eventDelta(ctx, event)
 		if err != nil {
-			sess.LogErr("%s calculating deltas for event: %s", err.Error(), event)
+			ctx.LogError("%s calculating deltas for event: %s", err.Error(), event)
 			return nil
 		}
 	}
@@ -63,42 +80,49 @@ func (eo *EventOps) process(sess *Session, event []byte) (out []byte) {
 }
 
 // eventDelta perform delta and rate calculation
-func (eo *EventOps) eventDelta(sess *Session, event []byte) (out []byte, err error) {
+func (eo *EventOps) eventDelta(ctx *Context, event []byte) (out []byte, err error) {
 
 	// Get any specified event unique attribute key, empty string otherwise
-	keyVal, _ := rexon.JSONGetUnsafeString(event, eo.Delta.KeyField)
+	keyVal, _ := js.GetUnsafeString(event, eo.Delta.KeyField)
 
 	// Set the timestamp on the current event for caching
-	if event, err = rexon.JSONSet(event, sess.timeCurrent, KeyTimeStamp); err != nil {
-		return nil, err
+	if !js.Has(event, keys.Time) {
+		if event, err = js.Set(event, ctx.CurrentRunTime(), keys.Time); err != nil {
+			ctx.LogError("error setting current time %s", err.Error())
+			return nil, err
+		}
 	}
 
 	// Get previous event for delta.
 	// If we can't find a existing event, store the current event and return
-	key := append(deltaPrefix, []byte(sess.name+"/"+sess.node.HostName+"/"+keyVal)...)
-	previous, err := sess.txn.Get(key)
+	key := append(deltaPrefix, []byte(ctx.name+"/"+ctx.node.HostName+"/"+keyVal)...)
+	previous, err := ctx.txn.Get(key)
 
 	if err != nil {
 		if err == storage.ErrKeyNotFound {
-			sess.LogDebug("key: %s not in cache", keyVal)
-			return nil, sess.txn.SetWithTTL(key, event, eo.Delta.TTL)
+			// ctx.LogDebug("event for key %s not found", key)
+			// ctx.LogDebug("set event for key %s: %s", key, string(event))
+			return nil, ctx.txn.SetWithTTL(key, event, eo.Delta.TTL)
 		}
 		return nil, err
 	}
 
 	// Store the current event
-	if err = sess.txn.SetWithTTL(key, event, eo.Delta.TTL); err != nil {
+	if err = ctx.txn.SetWithTTL(key, event, eo.Delta.TTL); err != nil {
 		return nil, err
 	}
 
 	// Parse the current and previous events, and timestamps for calculations
-	previousTimestamp, _ := rexon.JSONGetInt(previous, KeyTimeStamp)
-	timeDelta := sess.timeCurrent - previousTimestamp
+	previousTimestamp, err := js.GetTime(previous, keys.Time)
+	if err != nil {
+		return nil, err
+	}
+	timeDelta := ctx.CurrentRunTime().Sub(previousTimestamp).Seconds()
 
 	// Loop over the event fields and perform the operations specified for each one.
 	// if we get an error calculating stop return an error event to the stream
-	err = rexon.JSONForEach(event, func(key string, value []byte, tp rexon.ValueType) error {
-		if key == KeyTimeStamp {
+	err = js.ForEach(event, func(key string, value []byte) error {
+		if key == keys.Time {
 			return nil
 		}
 
@@ -111,15 +135,18 @@ func (eo *EventOps) eventDelta(sess *Session, event []byte) (out []byte, err err
 
 		// Get the previous value for calculation and check its type
 		// If its not a numeric type stop the iteration
-		previousValue, err := rexon.JSONGetFloat(previous, key)
+		previousValue, err := js.GetFloat(previous, key)
 		if err != nil {
 			return err
 		}
 
-		currentValue, err := rexon.JSONGetFloat(value)
+		currentValue, err := js.GetFloat(value)
 		if err != nil {
 			return err
 		}
+
+		// ctx.LogDebug("delta for key: %s, current value: %x, previous value: %x",
+		// key, currentValue, previousValue)
 
 		// Get the delta for this key
 		newValue := currentValue - previousValue
@@ -127,18 +154,24 @@ func (eo *EventOps) eventDelta(sess *Session, event []byte) (out []byte, err err
 		// Check if have any rate calculation to do and if current field isn't blacklisted
 		// If not calculate and round to the precision on FieldOps.Round
 		if !eo.Delta.Rate {
-			event, err = rexon.JSONSet(event, newValue, key)
+			event, err = js.Set(event, newValue, key)
 			return err
 		}
 
 		if _, ok := eo.Delta.RateBlacklist[key]; ok {
-			event, err = rexon.JSONSet(event, newValue, key)
+			event, err = js.Set(event, newValue, key)
 			return err
 		}
 
-		event, err = rexon.JSONSet(event, rexon.Round(newValue/float64(timeDelta), eo.Round), key)
+		event, err = js.Set(event, round(newValue/float64(timeDelta), eo.Round), key)
 		return err
 	})
 
 	return event, err
+}
+
+// Round a float to the specified precision
+func round(f float64, round int) (n float64) {
+	shift := math.Pow(10, float64(round))
+	return math.Floor((f*shift)+.5) / shift
 }

@@ -3,7 +3,7 @@ package tact
 import (
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/brunotm/tact/log"
 	"github.com/brunotm/tact/storage"
 	"github.com/brunotm/tact/storage/badgerdb"
 )
@@ -38,10 +38,6 @@ func Init(path string) {
 // Close shutdown and stops the core
 func Close() {
 	if err := Store.Close(); err != nil {
-		log.WithFields(
-			log.Fields{
-				"error": err.Error(),
-			},
-		).Info("Error closing KVStore")
+		log.Error("error closing store", "error", err.Error())
 	}
 }

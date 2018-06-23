@@ -3,9 +3,12 @@ package linux
 import (
 	"time"
 
+	"github.com/brunotm/tact/collector/keys"
+
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/ssh"
+	"github.com/brunotm/tact/js"
 )
 
 func init() {
@@ -21,38 +24,26 @@ var lsblk = &tact.Collector{
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/storage",
-			JoinFields:    []string{"device", "dm_device"},
-			JoinOnFields:  []string{"device"},
-			IncludeFields: []string{"array_id", "array_device", "device_wwn"},
+			JoinFields:    []string{keys.Device, keys.DeviceDM},
+			JoinOnFields:  []string{keys.Device},
+			IncludeFields: []string{keys.ArrayID, keys.ArrayDevice, keys.DeviceWWN},
 		},
 	},
 }
 
-var lsblkParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^(.*?)\s+\(?(.*?)\)?\s+(\d+:\d+)\s+\d+\s+(\d+)\s+\d+(.*)`),
-	Fields: []string{"device", "dm_device", "maj_min", "size_bytes", "mount"},
-	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString, "size_bytes": rexon.TypeNumber},
-}
+var lsblkParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Device, rexon.String),
+		rexon.MustNewValue(keys.DeviceDM, rexon.String),
+		rexon.MustNewValue(keys.MajMin, rexon.String),
+		rexon.MustNewValue(keys.SizeMB, rexon.DigitalUnit, rexon.ToFormat("mb")),
+		rexon.MustNewValue(keys.MountPoint, rexon.String),
+	},
+	rexon.LineRegex(`(.*?)\s+\(?(.*?)\)?\s+(\d+:\d+)\s+\d+\s+(\d+)\s+\d+(.*)`),
+)
 
-func lsblkFn(session *tact.Session) (events <-chan []byte) {
-	outCh := make(chan []byte)
-	go func() {
-		defer close(outCh)
-		for blk := range collector.SSHRex(session, "lsblk -lb", lsblkParser) {
-			sz, err := rexon.JSONGetFloat(blk, "size_bytes")
-			if err == nil {
-				blk, _ = rexon.JSONSet(blk, sz/1024/1024, "size_mbytes")
-				blk = rexon.JSONDelete(blk, "size_bytes")
-			}
-
-			if !tact.WrapCtxSend(session.Context(), outCh, blk) {
-				session.LogErr("timeout sending event upstream")
-				return
-			}
-
-		}
-	}()
-	return outCh
+func lsblkFn(ctx *tact.Context) (events <-chan []byte) {
+	return ssh.Regex(ctx, "lsblk -lb", lsblkParser)
 }
 
 var pvs = &tact.Collector{
@@ -62,21 +53,24 @@ var pvs = &tact.Collector{
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
-			JoinFields:    []string{"device"},
-			JoinOnFields:  []string{"device"},
-			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "device", "dm_device"},
+			JoinFields:    []string{keys.Device},
+			JoinOnFields:  []string{keys.Device},
+			IncludeFields: []string{keys.ArrayID, keys.ArrayDevice, keys.DeviceWWN, keys.SizeMB, keys.Device, keys.DeviceDM},
 		},
 	},
 }
 
-var pvsParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^/.*?/(\w+)\s+(\w+)\s+(\w+)`),
-	Fields: []string{"device", "vg_name", "vg_type"},
-	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
-}
+var pvsParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Device, rexon.String),
+		rexon.MustNewValue(keys.VGName, rexon.String),
+		rexon.MustNewValue(keys.VGType, rexon.String),
+	},
+	rexon.LineRegex(`/.*?/(\w+)\s+(\w+)\s+(\w+)`),
+)
 
-func pvsFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SSHRex(session, "pvs", pvsParser)
+func pvsFn(ctx *tact.Context) (events <-chan []byte) {
+	return ssh.Regex(ctx, "pvs", pvsParser)
 }
 
 var asmDevices = &tact.Collector{
@@ -87,30 +81,33 @@ var asmDevices = &tact.Collector{
 		{
 			TTL:           3 * time.Hour,
 			Name:          "/linux/config/lsblk",
-			JoinFields:    []string{"maj_min"},
-			JoinOnFields:  []string{"maj_min"},
-			IncludeFields: []string{"array_id", "array_device", "device_wwn", "size_mbytes", "device", "dm_device"},
+			JoinFields:    []string{keys.MajMin},
+			JoinOnFields:  []string{keys.MajMin},
+			IncludeFields: []string{keys.ArrayID, keys.ArrayDevice, keys.DeviceWWN, keys.SizeMB, keys.Device, keys.DeviceDM},
 		},
 	},
 }
 
-var asmDevicesParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^.*?\s+.*?\s+.*?\s+.*?(\d+),\s+(\d+)\s+.*?\s+.*?\s+.*?\s+.*?(.*)`),
-	Fields: []string{"major", "minor", "asm_device"},
-	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
-}
+var asmDevicesParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Maj, rexon.String),
+		rexon.MustNewValue(keys.Min, rexon.String),
+		rexon.MustNewValue("asm_device", rexon.String),
+	},
+	rexon.LineRegex(`.*?\s+.*?\s+.*?\s+.*?(\d+),\s+(\d+)\s+.*?\s+.*?\s+.*?\s+.*?(.*)`),
+)
 
-func asmDevicesFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SSHRex(session, "ls -l /dev/oracleasm/disks", asmDevicesParser)
+func asmDevicesFn(ctx *tact.Context) (events <-chan []byte) {
+	return ssh.Regex(ctx, "ls -l /dev/oracleasm/disks", asmDevicesParser)
 }
 
 func asmDevicesPostOpsFn(event []byte) (out []byte, err error) {
-	major, _ := rexon.JSONGetString(event, "major")
-	minor, _ := rexon.JSONGetString(event, "minor")
-	event = rexon.JSONDelete(event, "major")
-	event = rexon.JSONDelete(event, "minor")
-	event, _ = rexon.JSONSet(event, "oracleasm", "vg_type")
-	event, _ = rexon.JSONSet(event, nil, "vg_name")
-	event, _ = rexon.JSONSet(event, nil, "vg_mode")
-	return rexon.JSONSet(event, major+":"+minor, "maj_min")
+	major, _ := js.GetString(event, keys.Maj)
+	minor, _ := js.GetString(event, keys.Min)
+	event = js.Delete(event, keys.Maj)
+	event = js.Delete(event, keys.Min)
+	event, _ = js.Set(event, "oracleasm", keys.VGType)
+	event, _ = js.Set(event, nil, keys.VGName)
+	event, _ = js.Set(event, nil, keys.VGMode)
+	return js.Set(event, major+":"+minor, keys.MajMin)
 }

@@ -3,7 +3,8 @@ package aix
 import (
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/ssh"
+	"github.com/brunotm/tact/collector/keys"
 )
 
 const (
@@ -19,12 +20,16 @@ var lspv = &tact.Collector{
 	GetData: lspvFn,
 }
 
-var lspvParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^(\w+)\s+(\w+)\s+(\w+)\s+(\w+)`),
-	Fields: []string{"device", "pvid", "vg_name", "vg_mode"},
-	Types:  map[string]rexon.ValueType{rexon.KeyTypeAll: rexon.TypeString},
-}
+var lspvParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue(keys.Device, rexon.String),
+		rexon.MustNewValue("pvid", rexon.String),
+		rexon.MustNewValue(keys.VGName, rexon.String),
+		rexon.MustNewValue(keys.VGMode, rexon.String),
+	},
+	rexon.LineRegex(`(\w+)\s+(\w+)\s+(\w+)\s+(\w+)`),
+)
 
-func lspvFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SSHRex(session, lspvCmd, lspvParser)
+func lspvFn(ctx *tact.Context) (events <-chan []byte) {
+	return ssh.Regex(ctx, lspvCmd, lspvParser)
 }

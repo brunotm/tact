@@ -3,7 +3,7 @@ package aix
 import (
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
-	"github.com/brunotm/tact/collector"
+	"github.com/brunotm/tact/collector/client/ssh"
 )
 
 const (
@@ -19,17 +19,17 @@ var wlmStat = &tact.Collector{
 	GetData: wlmStatFn,
 }
 
-var wlmStatParser = &rexon.RexLine{
-	Rex:    rexon.RexMustCompile(`^(\w+)\s+([-+]?[0-9]*\.?[0-9]+)\s+([-+]?[0-9]*\.?[0-9]+)\s+([-+]?[0-9]*\.?[0-9]+)`),
-	Fields: []string{"class", "cpu", "mem", "dkio"},
-	Round:  2,
-	Types: map[string]rexon.ValueType{
-		rexon.KeyTypeAll: rexon.TypeNumber,
-		"class":          rexon.TypeString,
+var wlmStatParser = rexon.MustNewParser(
+	[]*rexon.Value{
+		rexon.MustNewValue("class", rexon.String),
+		rexon.MustNewValue("cpu", rexon.Number),
+		rexon.MustNewValue("mem", rexon.Number),
+		rexon.MustNewValue("dkio", rexon.Number),
 	},
-}
+	rexon.LineRegex(`(\w+)\s+([-+]?[0-9]*\.?[0-9]+)\s+([-+]?[0-9]*\.?[0-9]+)\s+([-+]?[0-9]*\.?[0-9]+)`),
+)
 
 // WLMStat collector
-func wlmStatFn(session *tact.Session) (events <-chan []byte) {
-	return collector.SSHRex(session, wlmStatCmd, wlmStatParser)
+func wlmStatFn(ctx *tact.Context) (events <-chan []byte) {
+	return ssh.Regex(ctx, wlmStatCmd, wlmStatParser)
 }

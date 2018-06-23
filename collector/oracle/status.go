@@ -3,6 +3,7 @@ package oracle
 import (
 	"github.com/brunotm/rexon"
 	"github.com/brunotm/tact"
+	"github.com/brunotm/tact/collector/client/oracle"
 )
 
 const (
@@ -17,14 +18,13 @@ var sessions = &tact.Collector{
 	Name:    "/oracle/performance/sessions",
 	GetData: sessionsFn,
 	EventOps: &tact.EventOps{
-		Round: 2,
-		FieldTypes: map[string]rexon.ValueType{
-			rexon.KeyTypeAll: rexon.TypeNumber,
+		FieldTypes: []*rexon.Value{
+			rexon.MustNewValue("active_sessions", rexon.Number),
 		},
 	},
 }
 
 // vmstat collector
-func sessionsFn(session *tact.Session) (events <-chan []byte) {
-	return singleQuery(session, sessionsQuery)
+func sessionsFn(ctx *tact.Context) (events <-chan []byte) {
+	return oracle.SingleQuery(ctx, sessionsQuery)
 }

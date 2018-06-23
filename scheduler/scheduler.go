@@ -8,6 +8,7 @@ import (
 
 	"github.com/brunotm/sema"
 	"github.com/brunotm/tact"
+	"github.com/brunotm/tact/log"
 	"github.com/robfig/cron"
 )
 
@@ -17,9 +18,9 @@ type Scheduler struct {
 	ctx     context.Context          // Main context that will be propagated to running collectors
 	cancel  context.CancelFunc       // Cancel function of main context
 	grace   time.Duration            // Grace period before failing a start when acquiring a run slot
-	sema    *sema.Sema               // Semaphore to control maxTasks run slot
+	sema    sema.Sema                // Semaphore to control maxTasks run slots
 	cron    *cron.Cron               // The cron scheduler
-	running map[string]*tact.Session // The store for current running sessions
+	running map[string]*tact.Context // The store for current running ctxs
 	wchan   chan []byte
 }
 
@@ -39,7 +40,7 @@ func New(maxTasks int, grace time.Duration, wchan chan []byte) (sched *Scheduler
 		grace:   grace,
 		sema:    sema,
 		cron:    cron.New(),
-		running: make(map[string]*tact.Session),
+		running: make(map[string]*tact.Context),
 		wchan:   wchan,
 	}
 }
@@ -47,28 +48,34 @@ func New(maxTasks int, grace time.Duration, wchan chan []byte) (sched *Scheduler
 // AddJob function
 func (s *Scheduler) AddJob(spec string, coll *tact.Collector, node *tact.Node, ttl time.Duration) (err error) {
 	jobname := fmt.Sprintf("%s/%s", coll.Name, node.HostName)
-	sess := tact.NewSession(s.ctx, coll.Name, node, tact.Store, ttl)
 
 	fn := func() {
+		ctx, err := tact.NewContext(s.ctx, coll.Name, node, tact.Store, ttl)
+		if err != nil {
+			log.Error(
+				"scheduler creating new ctx",
+				"collector", coll.Name, "node", node.HostName, "error", err.Error())
+			return
+		}
 		if !s.sema.AcquireWithin(s.grace) {
-			sess.LogErr("scheduler: Timeout waiting for slot")
+			ctx.LogError("scheduler: Timeout waiting for slot")
 			return
 		}
 		defer s.sema.Release()
-		sess.LogDebug("aquired scheduler run slot")
+		ctx.LogDebug("aquired scheduler run slot")
 
-		if !s.addRun(jobname, sess) {
-			sess.LogErr("scheduler: Already running")
+		if !s.addRun(jobname, ctx) {
+			ctx.LogError("scheduler: Already running")
 			return
 		}
 
-		coll.Start(sess, s.wchan)
+		coll.Start(ctx, s.wchan)
 
 		if !s.removeRun(jobname) {
-			sess.LogErr("scheduler: Not found for removal after completion")
+			ctx.LogError("scheduler: Not found for removal after completion")
 		}
 	}
-	sess.LogInfo("added schedule: %s", spec)
+	log.Info("schedule: add job", "collector", coll.Name, "node", node.HostName, "schedule", spec)
 	return s.cron.AddFunc(spec, fn)
 }
 
@@ -110,14 +117,14 @@ func (s *Scheduler) waitJobs() {
 	}
 }
 
-func (s *Scheduler) addRun(name string, session *tact.Session) (ok bool) {
+func (s *Scheduler) addRun(name string, ctx *tact.Context) (ok bool) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	if _, running := s.running[name]; running {
 		return false
 	}
-	s.running[name] = session
+	s.running[name] = ctx
 	return true
 }
 

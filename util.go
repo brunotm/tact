@@ -2,7 +2,6 @@ package tact
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 
 	blake2b "github.com/minio/blake2b-simd"
@@ -18,16 +17,6 @@ func WrapCtxSend(ctx context.Context, evtChan chan<- []byte, event []byte) (ok b
 	}
 }
 
-func uint64Bytes(v uint64) (b []byte) {
-	buf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buf, v)
-	return buf
-}
-
-func bytesUint64(b []byte) (v uint64) {
-	return binary.LittleEndian.Uint64(b)
-}
-
 // BuildBlackList function
 func BuildBlackList(param ...string) (bl map[string]struct{}) {
 	m := make(map[string]struct{})
@@ -38,8 +27,8 @@ func BuildBlackList(param ...string) (bl map[string]struct{}) {
 	return m
 }
 
-// Blake2b hashing function
-func Blake2b(v []byte) (h string) {
+// Hash function
+func Hash(v []byte) (h string) {
 	b2b := blake2b.New256()
 	b2b.Write(v)
 	return hex.EncodeToString(b2b.Sum(nil))
